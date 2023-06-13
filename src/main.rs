@@ -3,6 +3,8 @@ use seahorse::{App, Context, Command};
 use std::env;
 use std::process::exit;
 
+use rayon::prelude::*;
+
 use kiss::list::list_action;
 use kiss::search::search_action;
 

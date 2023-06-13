@@ -7,7 +7,21 @@ use std::path::Path;
 use std::io;
 use std::io::prelude::*;
 
+use rayon::prelude::*;
+
+use seahorse::Context;
+
 pub const INSTALLED_DIR: &'static str = "/var/db/kiss/installed";
+
+pub fn get_args(c: &Context) -> Vec<&str> {
+    let mut args: Vec<&str> = vec![];
+
+    for arg in &c.args {
+	args.push(arg.as_str())
+    }
+
+    args
+}
 
 pub fn cat(path: &Path) -> io::Result<String> {
     let mut f = File::open(path)?;

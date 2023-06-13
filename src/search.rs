@@ -5,6 +5,9 @@ use std::env;
 // using this to remove duplicate path entries
 use std::collections::HashSet;
 
+use rayon::prelude::*;
+
+use super::get_args;
 use super::read_a_dir_and_sort;
 use super::INSTALLED_DIR;
 
@@ -39,11 +42,7 @@ pub fn find_pkg(name: &str) {
 }
 
 pub fn search_action(c: &Context) {
-    let mut search: Vec<&str> = vec![];
-
-    for package in &c.args {
-	search.push(package.as_str())
-    }
+    let search: Vec<&str> = get_args(&c);
 
     // search package
     for package in search {

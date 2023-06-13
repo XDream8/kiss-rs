@@ -1,21 +1,18 @@
 use seahorse::Context;
-
 use colored::*;
 
 use std::path::Path;
-
 use std::process::exit;
 
+use rayon::prelude::*;
+
+use super::get_args;
 use super::cat;
 use super::read_a_dir_and_sort;
 use super::INSTALLED_DIR;
 
 pub fn list_action(c: &Context) {
-    let mut search: Vec<String> = vec![];
-
-    for package in &c.args {
-	search.push(format!("{}", package).to_owned())
-    }
+    let search: Vec<&str> = get_args(&c);
 
     if search.is_empty() {
 	// get installed packages

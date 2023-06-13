@@ -9,8 +9,15 @@ edition = "2021"
 dumb_terminal = ["colored/no-color"]
 
 [dependencies]
+## cli
 seahorse = "2.1"
 colored = "2"
+## parallel
+rayon = "1.7.0"
+lazy_static = "1.4.0"
+num_cpus = "1.15.0"
+## archive
+#decompress = "0.5"
 
 [profile.release]
 lto = "thin"

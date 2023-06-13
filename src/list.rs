@@ -4,19 +4,17 @@ use colored::*;
 use std::path::Path;
 use std::process::exit;
 
-use rayon::prelude::*;
-
 use super::get_args;
 use super::cat;
 use super::read_a_dir_and_sort;
-use super::INSTALLED_DIR;
+use super::SYS_DB;
 
 pub fn list_action(c: &Context) {
     let search: Vec<&str> = get_args(&c);
 
     if search.is_empty() {
 	// get installed packages
-	let installed_packages: Vec<_> = read_a_dir_and_sort(INSTALLED_DIR);
+	let installed_packages: Vec<_> = read_a_dir_and_sort(SYS_DB);
 
 	for package in installed_packages {
 	    let version: String = cat(&package.path().join("version")).unwrap().replace(" ", "-").replace("\n", "");
@@ -24,7 +22,7 @@ pub fn list_action(c: &Context) {
 	}
     } else {
 	for package in search {
-	    let path: &Path = &Path::new(INSTALLED_DIR).join(&package);
+	    let path: &Path = &Path::new(SYS_DB).join(&package);
 	    if path.exists() {
 		let version: String = cat(&path.join("version")).unwrap().replace(" ", "-").replace("\n", "");
 		println!("{} {}", path.file_name().unwrap().to_str().unwrap(), version)

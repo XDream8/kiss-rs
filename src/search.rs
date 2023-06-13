@@ -1,35 +1,15 @@
 use seahorse::Context;
 
-use std::env;
-
-// using this to remove duplicate path entries
-use std::collections::HashSet;
-
-use rayon::prelude::*;
+// global variables
+use super::KISS_PATH;
 
 use super::get_args;
 use super::read_a_dir_and_sort;
-use super::INSTALLED_DIR;
 
 pub fn find_pkg(name: &str) {
-    // get output of KISS_PATH environment variable
-    let path_var: String = match env::var("KISS_PATH") {
-	Ok(v) => v,
-	_ => INSTALLED_DIR.to_owned()
-    };
+    let kiss_path = &*KISS_PATH;
 
-    // create paths vector
-    let binding = path_var.split(":");
-    let mut paths: Vec<&str> = binding.collect();
-
-    // add installed packages directory
-    paths.push(INSTALLED_DIR);
-
-    // remove duplicates from paths
-    let mut set = HashSet::new();
-    paths.retain(|x| set.insert(x.clone()));
-
-    for path in paths {
+    for path in kiss_path {
 	let packages: Vec<_> = read_a_dir_and_sort(path);
 	for package in packages {
 	    let package_path = package.path();

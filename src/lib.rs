@@ -2,6 +2,8 @@ pub mod checksum;
 pub mod list;
 pub mod search;
 
+//pub mod source;
+
 use std::fs;
 use std::fs::{File, DirEntry};
 use std::path::{Path, PathBuf};
@@ -20,14 +22,37 @@ use colored::*;
 
 use once_cell::sync::Lazy;
 
+// Variables
+// almost all global variables should be lazy
+
+
 // Experimental
-// pub static HTTP_CLIENT: Lazy<reqwest::Client> =
-//     Lazy::new(|| reqwest::Client::builder().gzip(true).build().unwrap());
+// pub static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| reqwest::Client::builder().gzip(true).build().unwrap());
 
-pub const SYS_DB: &'static str = "/var/db/kiss/installed";
+pub static SYS_DB: &'static str = "/var/db/kiss/installed";
 
-pub static KISS_PATH: Lazy<Vec<String>> =Lazy::new(|| {
-    let env_var: String = get_env_variable("KISS_PATH", SYS_DB);
+pub static HOME: Lazy<String> = Lazy::new(|| get_env_variable("HOME", String::new()));
+pub static CACHE: Lazy<String> = Lazy::new(|| get_env_variable("XDG_CACHE_HOME", format!("{}/.cache", *HOME)));
+
+// Cache
+pub static CAC_DIR: Lazy<String> = Lazy::new(|| format!("{}/kiss", *CACHE));
+pub static SRC_DIR: Lazy<String> = Lazy::new(|| format!("{}/sources", *CAC_DIR));
+pub static LOG_DIR: Lazy<String> = Lazy::new(|| format!("{}/logs", *CAC_DIR));
+pub static BIN_DIR: Lazy<String> = Lazy::new(|| format!("{}/bin", *CAC_DIR));
+
+pub static PROC: Lazy<String> = Lazy::new(|| format!("{}/proc/{}", *CAC_DIR, *KISS_PID));
+pub static MAK_DIR: Lazy<String> = Lazy::new(|| format!("{}/build", *PROC));
+pub static PKG_DIR: Lazy<String> = Lazy::new(|| format!("{}/pkg", *PROC));
+pub static TAR_DIR: Lazy<String> = Lazy::new(|| format!("{}/extract", *PROC));
+pub static TMP_DIR: Lazy<String> = Lazy::new(|| format!("{}/tmp", *PROC));
+
+pub static KISS_PID: Lazy<u32> = Lazy::new(|| std::process::id());
+pub static KISS_TMP: Lazy<String> = Lazy::new(|| get_env_variable("KISS_TMP", format!("{}/kiss", *CACHE)));
+pub static KISS_DEBUG: Lazy<String> = Lazy::new(|| get_env_variable("KISS_DEBUG", "0".to_owned()));
+pub static KISS_LVL: Lazy<String> = Lazy::new(|| get_env_variable("KISS_LVL", "1".to_owned()));
+
+pub static KISS_PATH: Lazy<Vec<String>> = Lazy::new(|| {
+    let env_var: String = get_env_variable("KISS_PATH", SYS_DB.to_owned());
 
     let mut path: Vec<String> = Vec::new();
 
@@ -38,22 +63,33 @@ pub static KISS_PATH: Lazy<Vec<String>> =Lazy::new(|| {
     // add installed packages directory
     path.push(SYS_DB.to_owned());
 
-    // remove duplicates from paths
+    // remove duplicates and empty entries from paths
     let mut set = HashSet::new();
-    path.retain(|x| set.insert(x.clone()));
+    path.retain(|x| !x.is_empty() && set.insert(x.clone()));
 
     path
+
 }
 );
 
-pub static KISS_TMP: Lazy<String> =Lazy::new(|| {
-    let env_var: String = get_env_variable("KISS_TMP", format!("{}/kiss", get_env_variable("XDG_CACHE_HOME", "~/.cache")).as_str());
-
-    env_var
+// Functions
+pub fn create_tmp_dirs() {
+    let dirs = vec!(&*SRC_DIR, &*LOG_DIR, &*BIN_DIR, &*MAK_DIR, &*PKG_DIR, &*TAR_DIR, &*TMP_DIR);
+    for dir in dirs {
+	fs::create_dir_all(dir);
+    }
 }
-);
 
-
+pub fn pkg_clean() {
+    if *KISS_DEBUG == "0" {
+	if *KISS_LVL == "1" {
+	    fs::remove_dir_all(&*PROC);
+	}
+	else {
+	    fs::remove_dir_all(&*TAR_DIR);
+	}
+    }
+}
 
 pub fn get_args(c: &Context) -> Vec<&str> {
     let mut args: Vec<&str> = vec![];
@@ -74,27 +110,27 @@ pub fn cat(path: &Path) -> Result<String> {
     }
 }
 
-pub fn read_a_file_lines(file_path: impl AsRef<Path>, error_msg: &str) -> Vec<String> {
+pub fn read_a_files_lines(file_path: impl AsRef<Path>, error_msg: &str) -> Vec<String> {
     let f = File::open(file_path).expect(error_msg);
     let buf = BufReader::new(f);
     buf.lines()
-        .map(|l| l.expect("Couldn't parse line"))
-        .collect()
+	.map(|l| l.expect("Couldn't parse line"))
+	.collect()
 }
 
 pub fn get_current_working_dir() -> Result<PathBuf> {
     env::current_dir()
 }
 
-pub fn get_env_variable(env: &str, default: &str) -> String {
+pub fn get_env_variable(env: &str, default_value: String) -> String {
     // get output of environment variable
     match env::var(env) {
 	Ok(v) => v,
-	_ => default.to_owned()
+	_ => default_value
     }
 }
 
-pub fn file_exists_in_current_dir(filename: &str) -> bool {
+					    pub fn file_exists_in_current_dir(filename: &str) -> bool {
     get_current_working_dir().expect(format!("{}: Failed to get working dir", "ERROR".yellow()).as_str()).join(filename).exists()
 }
 
@@ -122,20 +158,3 @@ pub fn get_file_hash(file_path: &str) -> Result<String> {
 
     Ok(hex::encode(hash_output))
 }
-
-// Experimental Function to download files
-// pub async fn fetch(uri: &str, body: &mut String) -> Result<(), reqwest::Error> {
-//     let resp = HTTP_CLIENT.get(uri).send().await?;
-//     if resp.status() != 200 {
-//         eprintln!("{} ({}) {}: {}",
-// 		  "fetching".red().bold(),
-// 		  uri.yellow(),
-// 		  "failed".red().bold(),
-// 		  format!("{}", resp.status()).red().bold(),
-//         );
-//     }
-//     else {
-//         *body = resp.text().await?;
-//     }
-//     Ok(())
-// }

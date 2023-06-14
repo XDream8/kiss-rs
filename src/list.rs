@@ -14,7 +14,7 @@ pub fn list_action(c: &Context) {
 
     if search.is_empty() {
 	// get installed packages
-	let installed_packages: Vec<_> = read_a_dir_and_sort(SYS_DB);
+	let installed_packages: Vec<_> = read_a_dir_and_sort(&*SYS_DB);
 
 	for package in installed_packages {
 	    let version: String = cat(&package.path().join("version")).unwrap().replace(" ", "-").replace("\n", "");
@@ -22,7 +22,7 @@ pub fn list_action(c: &Context) {
 	}
     } else {
 	for package in search {
-	    let path: &Path = &Path::new(SYS_DB).join(&package);
+	    let path: &Path = &Path::new(&*SYS_DB).join(&package);
 	    if path.exists() {
 		let version: String = cat(&path.join("version")).unwrap().replace(" ", "-").replace("\n", "");
 		println!("{} {}", path.file_name().unwrap().to_str().unwrap(), version)

@@ -3,14 +3,9 @@ use seahorse::{App, Context, Command};
 use std::env;
 use std::process::exit;
 
-use rayon::prelude::*;
-
 use kiss::list::list_action;
 use kiss::search::search_action;
 use kiss::checksum::checksum_action;
-
-use blake3::{Hasher, OutputReader};
-
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -43,12 +38,6 @@ fn main() {
 }
 
 fn action(c: &Context) {
-
-    match kiss::get_file_hash("/var/db/kiss/installed/pigz/version") {
-	Ok(hash) => println!("File hash: {}", hash),
-	Err(e) => eprintln!("Error: {}", e)
-}
-
     if c.args.is_empty() {
 	c.help();
 	exit(0);

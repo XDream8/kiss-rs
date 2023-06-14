@@ -73,22 +73,26 @@ pub static KISS_PATH: Lazy<Vec<String>> = Lazy::new(|| {
 );
 
 // Functions
-pub fn create_tmp_dirs() {
+pub fn create_tmp_dirs() -> i32 {
     let dirs = vec!(&*SRC_DIR, &*LOG_DIR, &*BIN_DIR, &*MAK_DIR, &*PKG_DIR, &*TAR_DIR, &*TMP_DIR);
     for dir in dirs {
-	fs::create_dir_all(dir);
+	fs::create_dir_all(dir).expect("Failed to create directory");
     }
+
+    0
 }
 
-pub fn pkg_clean() {
+pub fn pkg_clean() -> i32 {
     if *KISS_DEBUG == "0" {
 	if *KISS_LVL == "1" {
-	    fs::remove_dir_all(&*PROC);
+	    fs::remove_dir_all(&*PROC).expect("Failed to remove directory");
 	}
 	else {
-	    fs::remove_dir_all(&*TAR_DIR);
+	    fs::remove_dir_all(&*TAR_DIR).expect("Failed to remove directory");
 	}
     }
+
+    0
 }
 
 pub fn get_args(c: &Context) -> Vec<&str> {

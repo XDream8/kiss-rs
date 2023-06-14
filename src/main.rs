@@ -3,9 +3,16 @@ use seahorse::{App, Context, Command};
 use std::env;
 use std::process::exit;
 
+// signal handling
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::process;
+use kiss::{create_tmp_dirs, pkg_clean};
+
 use kiss::list::list_action;
 use kiss::search::search_action;
 use kiss::checksum::checksum_action;
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -34,12 +41,28 @@ fn main() {
 		 .action(checksum_action)
 	);
 
+    let interrupted = Arc::new(AtomicBool::new(false));
+
+    let interrupted_clone = Arc::clone(&interrupted);
+
+    // Handle Ctrl-C
+    ctrlc::set_handler(move || {
+	interrupted_clone.store(true, Ordering::SeqCst);
+	println!("Received SIGINT signal");
+	process::exit(pkg_clean());
+    })
+	.expect("Error setting Ctrl-C handler");
+
+    // create tmp dirs
+    create_tmp_dirs();
     app.run(args);
+    // Handle exit signal
+    process::exit(pkg_clean());
 }
 
 fn action(c: &Context) {
-    if c.args.is_empty() {
-	c.help();
+if c.args.is_empty() {
+    c.help();
 	exit(0);
     }
 }

@@ -10,9 +10,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use kiss::checksum::checksum_action;
-use kiss::source::download_action;
 use kiss::list::list_action;
 use kiss::search::search_action;
+use kiss::source::download_action;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -22,21 +22,21 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .usage(format!("{} [file(s)] [args]", env!("CARGO_PKG_NAME")))
         .action(action)
-	.command(
+        .command(
             Command::new("checksum")
                 .description("Generate checksums")
                 .alias("c")
                 .usage("kiss checksum")
                 .action(checksum_action),
         )
-	.command(
+        .command(
             Command::new("download")
                 .description("Download sources")
                 .alias("d")
                 .usage("kiss download")
                 .action(download_action),
         )
-	.command(
+        .command(
             Command::new("list")
                 .description("List installed packages")
                 .alias("l")
@@ -61,7 +61,7 @@ fn main() {
         println!("Received SIGINT signal");
         process::exit(pkg_clean());
     })
-	.expect("Error setting Ctrl-C handler");
+    .expect("Error setting Ctrl-C handler");
 
     // create tmp dirs
     create_tmp_dirs();

@@ -1,12 +1,12 @@
 // cli
-use seahorse::Context;
 use super::get_args;
 use super::search::pkg_find;
+use seahorse::Context;
 
 // file libs
-use std::path::Path;
 use std::fs::File;
 use std::io::{self, Write};
+use std::path::Path;
 
 use reqwest::header::CONTENT_LENGTH;
 
@@ -16,8 +16,8 @@ use reqwest::header::CONTENT_LENGTH;
 use super::die;
 use super::log;
 
-use super::search::pkg_find_version;
 use super::read_a_files_lines;
+use super::search::pkg_find_version;
 
 // global variables
 use super::HTTP_CLIENT;
@@ -283,15 +283,15 @@ pub fn download_action(c: &Context) {
     let packages: Vec<&str> = get_args(&c);
 
     if !packages.is_empty() {
-	for package in packages {
-	    let pac = pkg_find(package, false);
-	    if !pac.is_empty() {
-		pkg_source(false, true);
-	    } else {
-		log(get_repo_name().as_str(), "package not found");
-	    }
-	}
+        for package in packages {
+            let pac = pkg_find(package, false);
+            if !pac.is_empty() {
+                pkg_source(false, true);
+            } else {
+                log(get_repo_name().as_str(), "package not found");
+            }
+        }
     } else {
-	pkg_source(false, true);
+        pkg_source(false, true);
     }
 }

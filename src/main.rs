@@ -22,21 +22,7 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .usage(format!("{} [file(s)] [args]", env!("CARGO_PKG_NAME")))
         .action(action)
-        .command(
-            Command::new("list")
-                .description("List installed packages")
-                .alias("l")
-                .usage("kiss list <package>")
-                .action(list_action),
-        )
-        .command(
-            Command::new("search")
-                .description("Search for packages")
-                .alias("s")
-                .usage("kiss search <package>")
-                .action(search_action),
-        )
-        .command(
+	.command(
             Command::new("checksum")
                 .description("Generate checksums")
                 .alias("c")
@@ -49,6 +35,20 @@ fn main() {
                 .alias("d")
                 .usage("kiss download")
                 .action(download_action),
+        )
+	.command(
+            Command::new("list")
+                .description("List installed packages")
+                .alias("l")
+                .usage("kiss list <package>")
+                .action(list_action),
+        )
+        .command(
+            Command::new("search")
+                .description("Search for packages")
+                .alias("s")
+                .usage("kiss search <package>")
+                .action(search_action),
         );
 
     let interrupted = Arc::new(AtomicBool::new(false));

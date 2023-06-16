@@ -173,9 +173,9 @@ pub fn mkcd(folder_name: &str) {
 
 pub fn remove_chars_after_last(input: &str, ch: char) -> &str {
     if let Some(index) = input.rfind(ch) {
-	&input[..index]
+        &input[..index]
     } else {
-	input
+        input
     }
 }
 
@@ -199,7 +199,7 @@ pub fn get_directory_name(path: &str) -> &str {
     let path = Path::new(path);
 
     if let Some(folder_name) = path.file_name() {
-	return folder_name.to_str().unwrap_or("");
+        return folder_name.to_str().unwrap_or("");
     }
 
     ""

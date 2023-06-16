@@ -4,6 +4,7 @@ use std::path::Path;
 
 // global variables
 use super::KISS_PATH;
+use super::SYS_DB;
 
 use super::get_args;
 use super::read_a_dir_and_sort;
@@ -49,17 +50,23 @@ pub fn pkg_find_version(name: &str, print: bool) -> String {
 }
 
 pub fn pkg_find(name: &str, print: bool) -> String {
-    let kiss_path = &*KISS_PATH;
+    let mut kiss_path: Vec<String> = KISS_PATH.to_vec();
 
     let mut wanted_package: String = String::new();
 
+    // remove SYS_DB path if we call this function from another function
+    // checksum etc.
+    if !print {
+	kiss_path.retain(|x| x != SYS_DB);
+    }
+
     for path in kiss_path {
-        let packages: Vec<_> = read_a_dir_and_sort(path);
+        let packages: Vec<_> = read_a_dir_and_sort(path.as_str());
         for package in packages {
-            let package_path = package.path();
-            let package_name = package_path.file_name().unwrap().to_str().unwrap();
-            // find packages and print
-            if print && package_name.contains(name) {
+	    let package_path = package.path();
+	    let package_name = package_path.file_name().unwrap().to_str().unwrap();
+	    // find packages and print
+	    if print && package_name.contains(name) {
                 println!("{}", package_path.display());
             }
             // find the first package that matches in KISS_PATH and break the loop

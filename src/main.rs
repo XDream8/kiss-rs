@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use kiss::checksum::checksum_action;
+use kiss::source::download_action;
 use kiss::list::list_action;
 use kiss::search::search_action;
 
@@ -41,6 +42,13 @@ fn main() {
                 .alias("c")
                 .usage("kiss checksum")
                 .action(checksum_action),
+        )
+	.command(
+            Command::new("download")
+                .description("Download sources")
+                .alias("d")
+                .usage("kiss download")
+                .action(download_action),
         );
 
     let interrupted = Arc::new(AtomicBool::new(false));
@@ -53,7 +61,7 @@ fn main() {
         println!("Received SIGINT signal");
         process::exit(pkg_clean());
     })
-    .expect("Error setting Ctrl-C handler");
+	.expect("Error setting Ctrl-C handler");
 
     // create tmp dirs
     create_tmp_dirs();

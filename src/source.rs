@@ -1,5 +1,10 @@
-use std::path::Path;
+// cli
+use seahorse::Context;
+use super::get_args;
+use super::search::pkg_find;
 
+// file libs
+use std::path::Path;
 use std::fs::File;
 use std::io::{self, Write};
 
@@ -7,15 +12,15 @@ use reqwest::header::CONTENT_LENGTH;
 
 // use std::process::Command;
 
+// logging functions
 use super::die;
 use super::log;
 
 use super::search::pkg_find_version;
-
 use super::read_a_files_lines;
 
+// global variables
 use super::HTTP_CLIENT;
-
 use super::SRC_DIR;
 use super::TMP_DIR;
 
@@ -163,6 +168,7 @@ pub fn pkg_source(skip_git: bool, print: bool) {
 }
 
 // Experimental Function to clone git repos
+// TODO: finish this function
 // pub fn pkg_source_git(package_name: String, source: String) {
 //     let mut com = source.clone();
 //     if let Some(index) = com.find('#') {
@@ -271,4 +277,21 @@ pub fn convert_bytes(bytes: u64) -> String {
     let pre = "KMGTPE".chars().nth(exp as usize - 1).unwrap();
     let value = bytes as f64 / f64::powi(UNIT as f64, exp as i32);
     format!("{:.1} {}B", value, pre)
+}
+
+pub fn download_action(c: &Context) {
+    let packages: Vec<&str> = get_args(&c);
+
+    if !packages.is_empty() {
+	for package in packages {
+	    let pac = pkg_find(package, false);
+	    if !pac.is_empty() {
+		pkg_source(false, true);
+	    } else {
+		log(get_repo_name().as_str(), "package not found");
+	    }
+	}
+    } else {
+	pkg_source(false, true);
+    }
 }

@@ -6,5 +6,6 @@
 kiss-rs is currently **WIP**.
 
 ## completed features
+- [X] checksum
 - [X] list
 - [X] search

@@ -2,49 +2,85 @@ use seahorse::Context;
 
 use super::file_exists_in_current_dir;
 use super::get_args;
+use super::get_repo_dir;
+use super::get_repo_name;
+
+use super::read_a_files_lines;
+
+use super::log;
 
 use super::source::pkg_source;
+use super::source::pkg_source_resolve;
+
+// for b3sum hash generation
+use blake3::Hasher;
+use std::fs::{File, OpenOptions};
+
+use std::io::{BufWriter, Read, Result, Write};
 
 pub fn checksum_action(c: &Context) {
     let packages: Vec<&str> = get_args(&c);
 
     if packages.is_empty() && file_exists_in_current_dir("sources") {
-        // let current_dir = format!("{}", get_current_working_dir().expect("Failed to get current working dir").display());
+        let sources: Vec<String> = read_a_files_lines("sources", "No sources file");
 
-        // let sources: Vec<String> = read_a_files_lines("sources", "ERROR");
+        pkg_source(true, false);
 
-        // let directory_name: String = match get_current_directory_name() {
-        //     Some(directory_name) => directory_name.to_owned(),
-        //     None => {
-        // 	eprintln!("Failed to retrieve current directory name");
-        // 	exit(1);
-        //     }
-        // };
+	let mut hashes: Vec<String> = Vec::new();
 
-        pkg_source(true);
+        for source in sources {
+	    let mut source = source.clone();
+            let mut dest = String::new();
 
-        // for source in sources {
-        //     let current_dir = current_dir.clone();
+            // consider user-given folder name
+            if source.contains(" ") {
+        	let source_parts: Vec<String> = source.split(" ").map(|l| l.to_owned()).collect();
+        	source = source_parts.first().unwrap().to_owned();
+        	dest = source_parts.last().unwrap().to_owned().trim_end_matches('/').to_owned();
+            }
 
-        //     let mut source = source.clone();
-        //     let mut dest = String::new();
+	    let (res, des) = pkg_source_resolve(source, dest, false);
 
-        //     // consider user-given folder name
-        //     if source.contains(" ") {
-        // 	let source_parts: Vec<String> = source.split(" ").map(|l| l.to_owned()).collect();
-        // 	    source = source_parts.first().unwrap().to_owned();
-        // 	    dest = source_parts.last().unwrap().to_owned().trim_end_matches('/').to_owned();
-        // 	}
+	    // if it is a local source res equals to des
+	    if res == des && !res.contains("git+") {
+		hashes.push(get_file_hash(&des).expect("Failed to generate checksums"));
+	    }
+	}
 
-        // 	// test
-        // 	let (res, des) = pkg_source_resolve(directory_name.clone(), source.clone(), dest.clone(), true);
+	if !hashes.is_empty() {
+	    // create or recreate checksums file
+	    let checksums_file = OpenOptions::new()
+		.write(true)
+		.truncate(true)
+		.create(true)
+		.open(format!("{}/checksums", get_repo_dir())).expect("Failed to create or recreate checksums file");
 
-        // 	let (res, des) = pkg_source_resolve(directory_name.clone(), source, dest, true);
-        //     }
+	    // use a buffered write r for performance
+	    let mut writer = BufWriter::new(checksums_file);
 
-        // match get_file_hash(&(SRC_DIR+"/fuzzel/1.9.1.tar.gz".to_owned())) {
-        //     Ok(hash) => println!("File hash: {}", hash),
-        //     Err(e) => eprintln!("Error: {}", e)
-        // }
+	    for hash in hashes {
+		println!("{}", hash);
+		writer.write_all(hash.as_bytes()).expect("Failed to write to checksums file");
+		writer.write_all(b"\n").expect("Failed to write to checksums file");
+	    }
+
+	    // ensure all data is written to the file
+	    writer.flush().expect("Failed to write to checksums file");
+
+	    log(get_repo_name().as_str(), "Generated checksums");
+	}
     }
+}
+
+pub fn get_file_hash(file_path: &str) -> Result<String> {
+    let mut file = File::open(file_path)?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+
+    let mut hash = Hasher::new().update(&buffer).finalize_xof();
+
+    let mut hash_output = vec![0; 32];
+    hash.fill(hash_output.as_mut_slice());
+
+    Ok(hex::encode(hash_output))
 }

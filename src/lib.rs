@@ -5,7 +5,6 @@ pub mod source;
 pub mod list;
 pub mod search;
 
-use blake3::Hasher;
 use std::fs;
 use std::fs::{DirEntry, File};
 use std::io::prelude::*;
@@ -167,6 +166,19 @@ pub fn read_a_files_lines(file_path: impl AsRef<Path>, error_msg: &str) -> Vec<S
         .collect()
 }
 
+pub fn mkcd(folder_name: &str) {
+    fs::create_dir_all(folder_name).expect("Failed to create folder");
+    env::set_current_dir(folder_name).expect("Failed to change directory");
+}
+
+pub fn remove_chars_after_last(input: &str, ch: char) -> &str {
+    if let Some(index) = input.rfind(ch) {
+	&input[..index]
+    } else {
+	input
+    }
+}
+
 pub fn get_current_working_dir() -> String {
     match env::current_dir() {
         Ok(current_dir) => current_dir.to_string_lossy().into_owned(),
@@ -213,17 +225,4 @@ pub fn read_a_dir_and_sort(path: &str) -> Vec<DirEntry> {
     entries.sort_by_key(|dir| dir.path());
 
     return entries;
-}
-
-pub fn get_file_hash(file_path: &str) -> Result<String> {
-    let mut file = File::open(file_path)?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
-
-    let mut hash = Hasher::new().update(&buffer).finalize_xof();
-
-    let mut hash_output = vec![0; 32];
-    hash.fill(hash_output.as_mut_slice());
-
-    Ok(hex::encode(hash_output))
 }

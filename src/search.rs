@@ -63,8 +63,8 @@ pub fn pkg_find(name: &str, print: bool) -> String {
                 println!("{}", package_path.display());
             }
             // find the first package that matches in KISS_PATH and break the loop
-            else if !print && name.to_owned().contains(package_name) {
-                wanted_package = format!("{}", package_path.display());
+            else if !print && name.to_owned() == package_name {
+		wanted_package = format!("{}", package_path.display());
                 break;
             }
         }

@@ -22,6 +22,9 @@ use super::TMP_DIR;
 use super::get_repo_dir;
 use super::get_repo_name;
 
+use super::mkcd;
+use super::remove_chars_after_last;
+
 // Given a line of input from the sources file, return an absolute
 // path to the source if it already exists, error if not.
 pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String, String) {
@@ -66,8 +69,10 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
         _ if source.starts_with('#') => ("".to_owned(), "".to_owned()),
         // git source
         _ if source.starts_with("git+") => (source_clone, _dest),
-        // Remote source
-        _ if source.contains("://") => (source_clone, _dest),
+        // Remote source(cached)
+        _ if source.contains("://") && Path::new(&_dest).exists() => (_dest.clone(), _dest),
+	// Remote source
+	_ if source.contains("://") => (source_clone, _dest),
         // Local relative dir
         _ if !repo_dir.is_empty()
             && Path::new(format!("{}/{}/.", repo_dir, source).as_str()).exists() =>
@@ -100,15 +105,14 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
             &package_name,
             format!("No local file '{}'", source).as_str(),
         );
+	// local
     } else if print && _res == _des {
         println!("found {}", _res);
-    } else if print {
-        println!("found {}", _des);
     }
     (_res, _des)
 }
 
-pub fn pkg_source(skip_git: bool) {
+pub fn pkg_source(skip_git: bool, print: bool) {
     let repo_name: String = get_repo_name();
 
     pkg_find_version(&repo_name, false);
@@ -142,7 +146,20 @@ pub fn pkg_source(skip_git: bool) {
                 .to_owned();
         }
 
-        let (res, des) = pkg_source_resolve(source_clone, dest, true);
+        let (res, des) = pkg_source_resolve(source_clone, dest, print);
+
+	mkcd(remove_chars_after_last(&des, '/'));
+
+	// if it is a local source both res and des are set to the same value
+	if res != des {
+	    if !skip_git && res.contains("git+") {
+		// place holder
+		die("ERR", "");
+	    }
+	    else {
+		pkg_source_url(&res, Path::new(&des));
+	    }
+	}
     }
 }
 
@@ -182,26 +199,31 @@ pub fn pkg_source(skip_git: bool) {
 // }
 
 // Experimental Function to download files
+#[tokio::main]
 pub async fn pkg_source_url(
     download_source: &str,
     download_dest: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let repo_name: String = get_repo_name();
+
+    log(&repo_name, format!("Downloading {}", download_source).as_str());
+
     let mut response = HTTP_CLIENT.get(download_source).send().await?;
 
     let total_size = response
-        .headers()
-        .get(CONTENT_LENGTH)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(0);
+	.headers()
+	.get(CONTENT_LENGTH)
+	.and_then(|value| value.to_str().ok())
+	.and_then(|value| value.parse().ok())
+	.unwrap_or(0);
     let mut downloaded = 0;
 
     // get file_name from download_dest variable
     let file_name = format!("{}", download_dest.display())
-        .split("/")
-        .last()
-        .unwrap()
-        .to_owned();
+	.split("/")
+	.last()
+	.unwrap()
+	.to_owned();
 
     // tmp file
     let tmp_file_name = format!("{}-download", file_name);
@@ -209,20 +231,20 @@ pub async fn pkg_source_url(
     let mut tmp_file = File::create(&tmp_file_path)?;
 
     while let Some(chunk) = response.chunk().await? {
-        let chunk_size = chunk.len() as u64;
+	let chunk_size = chunk.len() as u64;
 
-        downloaded += chunk_size;
+	downloaded += chunk_size;
 
-        print_progress(downloaded, total_size);
+	print_progress(downloaded, total_size);
 
-        tmp_file.write_all(&chunk)?;
+	tmp_file.write_all(&chunk)?;
     }
 
     println!("\rDownloading {}: 100% (Completed)", download_source);
 
     // move tmp_file
-    std::fs::rename(format!("{}", tmp_file_path.display()), download_dest)
-        .expect("Failed to move tmp_file");
+    std::fs::rename(tmp_file_path.to_string_lossy().into_owned(), download_dest)
+	.expect("Failed to move tmp_file");
 
     Ok(())
 }

@@ -44,11 +44,13 @@ pub fn pkg_checksum() {
 		.to_owned();
 	}
 
-	let (res, des) = pkg_source_resolve(source, dest, false);
+	if !source.is_empty() {
+	    let (res, des) = pkg_source_resolve(source, dest, false);
 
-	// if it is a local source res equals to des
-	if res == des && !res.contains("git+") {
-	    hashes.push(get_file_hash(&des).expect("Failed to generate checksums"));
+	    // if it is a local source res equals to des
+	    if res == des && !res.contains("git+") {
+		hashes.push(get_file_hash(&des).expect("Failed to generate checksums"));
+	    }
 	}
     }
 

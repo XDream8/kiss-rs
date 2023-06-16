@@ -100,7 +100,7 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
         _ => (String::new(), String::new()),
     };
 
-    if _res.is_empty() && _des.is_empty() {
+    if _res.is_empty() || _des.is_empty() {
         die(
             &package_name,
             format!("No local file '{}'", source).as_str(),

@@ -93,7 +93,7 @@ pub fn die(m1: &str, m2: &str) {
 }
 
 pub fn log(m1: &str, m2: &str) {
-    println!("{} {} {}", "->".yellow(), m1.cyan(), m2);
+    println!("{} {} {}", "->".yellow(), m1.cyan().bold(), m2);
 }
 
 pub fn create_tmp_dirs() -> i32 {

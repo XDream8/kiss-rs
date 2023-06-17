@@ -1,7 +1,8 @@
 //incomplete
-pub mod checksum;
 pub mod source;
+pub mod build;
 // complete
+pub mod checksum;
 pub mod list;
 pub mod search;
 
@@ -86,6 +87,9 @@ pub static KISS_PATH: Lazy<Vec<String>> = Lazy::new(|| {
     path
 });
 
+pub static DEPS: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
+pub static EXPLICIT: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
 // Functions
 pub fn die(m1: &str, m2: &str) {
     eprintln!("{} {} {}", "->".yellow(), m1.cyan(), m2);
@@ -119,6 +123,33 @@ pub fn pkg_clean() -> i32 {
     0
 }
 
+pub fn add_dep(value: String) {
+    let mut vector = DEPS.lock().unwrap();
+    vector.push(value);
+}
+
+pub fn get_deps() -> Vec<String> {
+    let vector = DEPS.lock().unwrap();
+    vector.iter().cloned().collect()
+}
+
+pub fn add_explicit(value: String) {
+    let mut vector = EXPLICIT.lock().unwrap();
+    vector.push(value);
+}
+
+pub fn get_explicit() -> Vec<String> {
+    let vector = EXPLICIT.lock().unwrap();
+    vector.iter().cloned().collect()
+}
+
+pub fn remove_explicit(element: String) {
+    let mut vector = EXPLICIT.lock().unwrap();
+    if let Some(index) = vector.iter().position(|x| *x == element) {
+	vector.remove(index);
+    }
+}
+
 pub fn set_repo_name(new_value: String) {
     let mut repo_name = REPO_NAME.lock().unwrap();
     *repo_name = new_value;
@@ -149,6 +180,7 @@ pub fn get_args(c: &Context) -> Vec<&str> {
     args
 }
 
+// file operations
 pub fn cat(path: &Path) -> Result<String> {
     let mut f = File::open(path)?;
     let mut s = String::new();
@@ -158,12 +190,16 @@ pub fn cat(path: &Path) -> Result<String> {
     }
 }
 
-pub fn read_a_files_lines(file_path: impl AsRef<Path>, error_msg: &str) -> Vec<String> {
-    let f = File::open(file_path).expect(error_msg);
-    let buf = BufReader::new(f);
-    buf.lines()
-        .map(|l| l.expect("Couldn't parse line"))
-        .collect()
+pub fn read_a_files_lines(file_path: impl AsRef<Path> + std::convert::AsRef<std::ffi::OsStr>) -> Result<Vec<String>> {
+    if Path::new(&file_path).exists() {
+	let f = File::open(file_path).unwrap();
+	let buf = BufReader::new(f);
+	return Ok(buf.lines()
+		  .map(|l| l.expect("Couldn't parse line"))
+		  .collect::<Vec<String>>());
+    }
+
+    Ok(vec![])
 }
 
 pub fn mkcd(folder_name: &str) {
@@ -211,6 +247,48 @@ pub fn get_env_variable(env: &str, default_value: String) -> String {
         Ok(v) => v,
         _ => default_value,
     }
+}
+
+pub fn files_exists_in_current_dir(directory: &str) -> bool {
+    if let Ok(entries) = fs::read_dir(directory) {
+	entries
+	    .filter_map(|entry| {
+		if let Ok(entry) = entry {
+		    let path = entry.path();
+		    if path.is_file() {
+			Some(path.file_name().unwrap().to_string_lossy().to_string())
+		    } else {
+			None
+		    }
+		} else {
+		    None
+		}
+	    })
+	    .any(|file_name| file_name.contains("*?*"))
+    } else {
+	false
+    }
+}
+
+// used by build command
+pub fn copy_folder(source: &Path, destination: &Path) -> Result<()> {
+    if source.is_dir() {
+	fs::create_dir_all(destination)?;
+
+	for entry in fs::read_dir(source)? {
+	    let entry = entry?;
+	    let source_path = entry.path();
+	    let destination_path = destination.join(entry.file_name());
+
+	    if source_path.is_dir() {
+		copy_folder(&source_path, &destination_path)?;
+	    } else {
+		fs::copy(&source_path, &destination_path)?;
+	    }
+	}
+    }
+
+    Ok(())
 }
 
 pub fn file_exists_in_current_dir(filename: &str) -> bool {

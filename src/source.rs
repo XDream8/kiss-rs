@@ -1,6 +1,5 @@
 // cli
 use super::get_args;
-use super::search::pkg_find;
 use seahorse::Context;
 
 // file libs
@@ -10,7 +9,7 @@ use std::path::Path;
 
 use reqwest::header::CONTENT_LENGTH;
 
-// use std::process::Command;
+use std::process::Command;
 
 // logging functions
 use super::die;
@@ -117,11 +116,15 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
     (_res, _des)
 }
 
-pub fn pkg_source(skip_git: bool, print: bool) {
+pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
+    if pkg.is_empty() {
+	pkg_find_version(get_repo_name().as_str(), false);
+    }
+    else {
+	pkg_find_version(pkg, false);
+    }
+
     let repo_name: String = get_repo_name();
-
-    pkg_find_version(&repo_name, false);
-
     let repo_dir: String = get_repo_dir();
 
     let sources_file = format!("{}/sources", repo_dir);
@@ -133,65 +136,65 @@ pub fn pkg_source(skip_git: bool, print: bool) {
 
     log(&repo_name, "Reading sources");
 
-    let sources: Vec<String> = read_a_files_lines(sources_file, "ERROR");
+    let sources: Vec<String> = read_a_files_lines(sources_file).expect("Failed to read sources file");
 
     for source in sources {
-        let mut source_clone = source.clone();
-        let mut dest = String::new();
+	let mut source_clone = source.clone();
+	let mut dest = String::new();
 
-        // consider user-given folder name
-        if source_clone.contains(" ") {
-            let source_parts: Vec<String> = source_clone.split(" ").map(|l| l.to_owned()).collect();
-            source_clone = source_parts.first().unwrap().to_owned();
-            dest = source_parts
-                .last()
-                .unwrap()
-                .to_owned()
-                .trim_end_matches('/')
-                .to_owned();
-        }
+	// consider user-given folder name
+	if source_clone.contains(" ") {
+	    let source_parts: Vec<String> = source_clone.split(" ").map(|l| l.to_owned()).collect();
+	    source_clone = source_parts.first().unwrap().to_owned();
+	    dest = source_parts
+		.last()
+		.unwrap()
+		.to_owned()
+		.trim_end_matches('/')
+		.to_owned();
+	}
 
-        let (res, des) = pkg_source_resolve(source_clone, dest, print);
+	let (res, des) = pkg_source_resolve(source_clone, dest, print);
 
-        mkcd(remove_chars_after_last(&des, '/'));
+	mkcd(remove_chars_after_last(&des, '/'));
 
-        // if it is a local source both res and des are set to the same value
-        if res != des {
-            if !skip_git && res.contains("git+") {
-                // place holder
-                die("ERR", "");
-            } else {
-                pkg_source_url(&res, Path::new(&des));
-            }
-        }
+	// if it is a local source both res and des are set to the same value
+	if res != des {
+	    if !skip_git && res.contains("git+") {
+		// place holder
+		pkg_source_git(&repo_name, res);
+	    } else {
+		pkg_source_url(&res, Path::new(&des));
+	    }
+	}
     }
 }
 
 // Experimental Function to clone git repos
-// TODO: finish this function
-// pub fn pkg_source_git(package_name: String, source: String) {
-//     let mut com = source.clone();
-//     if let Some(index) = com.find('#') {
-// 	com.truncate(index);
-//     }
-//     if let Some(index) = com.find('@') {
-// 	com.truncate(index);
-//     }
+// TODO: finish this function, it is currently just a placeholder
+pub fn pkg_source_git(package_name: &str, source: String) {
+    let mut com = source.clone();
+    if let Some(index) = com.find('#') {
+	com.truncate(index);
+    }
+    if let Some(index) = com.find('@') {
+	com.truncate(index);
+    }
 
-//     log(&package_name, format!("Checking out {}",
-// 			       if !com.is_empty() {
-// 				   &com
-// 			       }
-// 			       else {
-// 				   "FETCH_HEAD"
-// 			       }).as_str()
-//     );
+    log(&package_name, format!("Checking out {}",
+			       if !com.is_empty() {
+				   &com
+			       }
+			       else {
+				   "FETCH_HEAD"
+			       }).as_str()
+    );
 
-//     if !Path::new(".git").exists() {
-// 	let output = Command::new("git")
-// 	    .arg("init")
-// 	    .output();
-//     }
+    if !Path::new(".git").exists() {
+	let output = Command::new("git")
+	    .arg("init")
+	.output();
+}
 
 // com=${2##*[@#]}
 // com=${com#"${2%[#@]*}"}
@@ -201,9 +204,22 @@ pub fn pkg_source(skip_git: bool, print: bool) {
 
 // 	git fetch --depth=1 origin "$com"
 // 	git reset --hard FETCH_HEAD
-// }
+}
 
-// Experimental Function to download files
+// TODO: finish this function
+pub fn pkg_source_tar(res: String) {
+    let repo_name = get_repo_name();
+    // tmp file
+    let tmp_file_name = format!("{}-tarball", repo_name);
+    let tmp_file_path = Path::new(&*TMP_DIR).join(tmp_file_name);
+    let mut tmp_file = File::create(&tmp_file_path);
+    // manifest
+    let tmp_file_manifest_name = format!("{}-tarball-manifest", repo_name);
+    let tmp_file_manifest_path = Path::new(&*TMP_DIR).join(tmp_file_manifest_name);
+    let mut tmp_file_manifest = File::create(&tmp_file_manifest_path);
+}
+
+// Function to download files
 #[tokio::main]
 pub async fn pkg_source_url(
     download_source: &str,
@@ -276,22 +292,17 @@ pub fn convert_bytes(bytes: u64) -> String {
     let exp = (bytes as f64).log(UNIT as f64) as u32;
     let pre = "KMGTPE".chars().nth(exp as usize - 1).unwrap();
     let value = bytes as f64 / f64::powi(UNIT as f64, exp as i32);
-    format!("{:.1} {}B", value, pre)
-}
-
-pub fn download_action(c: &Context) {
-    let packages: Vec<&str> = get_args(&c);
-
-    if !packages.is_empty() {
-        for package in packages {
-            let pac = pkg_find(package, false);
-            if !pac.is_empty() {
-                pkg_source(false, true);
-            } else {
-                log(get_repo_name().as_str(), "package not found");
-            }
-        }
-    } else {
-        pkg_source(false, true);
+	format!("{:.1} {}B", value, pre)
     }
-}
+
+    pub fn download_action(c: &Context) {
+	let packages: Vec<&str> = get_args(&c);
+
+	if !packages.is_empty() {
+            for package in packages {
+		pkg_source(package, false, true);
+            }
+	} else {
+            pkg_source("", false, true);
+	}
+    }

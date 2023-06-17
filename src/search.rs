@@ -25,11 +25,10 @@ pub fn pkg_find_version(name: &str, print: bool) -> String {
     if version_path.exists() {
         let mut version: Vec<String> = read_a_files_lines(
             &version_path,
-            format!("Failed to read version file ({})", version_path.display()).as_str(),
-        );
+	).expect(format!("Failed to read version file ({})", version_path.display()).as_str());
 
-        // part version and release
-        version = version
+	// part version and release
+	version = version
             .first()
             .unwrap()
             .to_owned()

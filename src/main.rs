@@ -9,6 +9,7 @@ use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use kiss::build::build_action;
 use kiss::checksum::checksum_action;
 use kiss::list::list_action;
 use kiss::search::search_action;
@@ -29,6 +30,13 @@ fn main() {
                 .usage("kiss checksum")
                 .action(checksum_action),
         )
+	.command(
+            Command::new("build")
+                .description("Build packages")
+                .alias("b")
+                .usage("kiss build <packages>")
+                .action(build_action),
+	)
         .command(
             Command::new("download")
                 .description("Download sources")
@@ -61,7 +69,7 @@ fn main() {
         println!("Received SIGINT signal");
         process::exit(pkg_clean());
     })
-    .expect("Error setting Ctrl-C handler");
+	.expect("Error setting Ctrl-C handler");
 
     // create tmp dirs
     create_tmp_dirs();

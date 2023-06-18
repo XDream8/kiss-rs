@@ -69,13 +69,13 @@ pub fn pkg_extract(pkg: &str) {
 	let dest_path = Path::new(source_dir.as_str()).join(source_file_name);
 
 	if res.contains("git+") {
-	    copy_folder(Path::new(&dest), &dest_path).expect("Failed to copy git source");
+	    copy_folder(Path::new(res.as_str()), &dest_path).expect("Failed to copy git source");
 	}
 	else if res.contains("tar") {
 	    pkg_source_tar(res);
 	}
 	else if files_exists_in_current_dir(res.as_str()) {
-	    fs::copy(res, ".").expect("Failed to copy file");
+	    fs::copy(res, &dest_path).expect("Failed to copy file");
 	}
     }
 }
@@ -219,6 +219,8 @@ pub fn pkg_build(pkg: &str) {
     set_env_variable_if_undefined("CXX", "c++");
     set_env_variable_if_undefined("NM", "nm");
     set_env_variable_if_undefined("RANLIB", "ranlib");
+
+    println!("{:?}", std::env::current_dir());
 
     let executable = format!("{}/build", get_repo_dir());
     let install_dir = format!("{}/{}", *PKG_DIR, pkg);

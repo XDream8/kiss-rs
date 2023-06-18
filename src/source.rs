@@ -232,14 +232,16 @@ pub fn pkg_source_tar(res: String) {
     for entry in archive.entries().unwrap() {
 	let mut entry = entry.unwrap();
 	let path = entry.path().unwrap();
-	let file_name = path.file_name().unwrap();
 
-	let dest_path = Path::new(".").join(file_name);
+	// remove first level directory from dest
+	let dest = path.components().skip(1).collect::<std::path::PathBuf>().display().to_string();
+	let dest_path = Path::new(".").join(dest);
+
 	if let Err(err) = entry.unpack(dest_path) {
 	    eprintln!("Failed to extract file: {}", err);
 	    continue
-    }
 	}
+    }
 }
 
 // Function to download files

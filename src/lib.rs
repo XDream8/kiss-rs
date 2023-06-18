@@ -1,16 +1,17 @@
 //incomplete
 pub mod source;
 pub mod build;
+pub mod manifest;
 // complete
 pub mod checksum;
 pub mod list;
 pub mod search;
 
 use std::fs;
-use std::fs::{DirEntry, File};
+use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, Read, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // using this to remove duplicate path entries
 use std::collections::HashSet;
@@ -44,7 +45,14 @@ pub static REPO_NAME: Lazy<Mutex<String>> = Lazy::new(|| {
     Mutex::new(result)
 });
 
-pub static SYS_DB: &'static str = "/var/db/kiss/installed";
+pub static PKG_DB: &'static str = "/var/db/kiss/installed";
+pub static SYS_DB: Lazy<String> = Lazy::new(|| {
+    if KISS_ROOT.is_empty() {
+	(*PKG_DB).to_string()
+    } else {
+	format!("{}/{}", *KISS_ROOT, PKG_DB)
+    }
+});
 
 pub static HOME: Lazy<String> = Lazy::new(|| get_env_variable("HOME", String::new()));
 pub static CACHE: Lazy<String> =
@@ -67,6 +75,7 @@ pub static KISS_TMP: Lazy<String> =
     Lazy::new(|| get_env_variable("KISS_TMP", format!("{}/kiss", *CACHE)));
 pub static KISS_DEBUG: Lazy<String> = Lazy::new(|| get_env_variable("KISS_DEBUG", "0".to_owned()));
 pub static KISS_LVL: Lazy<String> = Lazy::new(|| get_env_variable("KISS_LVL", "1".to_owned()));
+pub static KISS_ROOT: Lazy<String> = Lazy::new(|| get_env_variable("KISS_ROOT", String::new()));
 
 pub static KISS_PATH: Lazy<Vec<String>> = Lazy::new(|| {
     let env_var: String = get_env_variable("KISS_PATH", SYS_DB.to_owned());
@@ -282,10 +291,33 @@ pub fn file_exists_in_current_dir(filename: &str) -> bool {
         .exists()
 }
 
-pub fn read_a_dir_and_sort(path: &str) -> Vec<DirEntry> {
-    let mut entries: Vec<_> = fs::read_dir(path).unwrap().map(|p| p.unwrap()).collect();
+pub fn read_a_dir_and_sort(path: &str, recursive: bool) -> Vec<PathBuf> {
+    let mut filtered_entries: Vec<PathBuf> = Vec::new();
 
-    entries.sort_by_key(|dir| dir.path());
+    let folder_path = Path::new(path);
 
-    return entries;
+    if folder_path.is_dir() {
+	for entry in fs::read_dir(folder_path).expect("Failed to read directory") {
+	    let entry = entry.unwrap();
+	    let path = entry.path();
+
+	    if path.is_file() {
+		let file_name = path.file_name().unwrap().to_string_lossy().to_owned();
+		if file_name.ends_with(".la") || file_name == "charset.alias" {
+		    continue;
+		}
+	    }
+
+	    filtered_entries.push(path.clone());
+
+	    if recursive && path.is_dir() {
+		let subfolder_entries = read_a_dir_and_sort(&path.to_string_lossy(), recursive);
+		filtered_entries.extend(subfolder_entries);
+	    }
+	}
+    }
+
+    // sort
+    filtered_entries.sort();
+    return filtered_entries;
 }

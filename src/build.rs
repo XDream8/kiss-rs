@@ -4,6 +4,7 @@ use super::get_args;
 
 use super::search::{pkg_find, pkg_find_version};
 use super::source::{pkg_source, pkg_source_resolve, pkg_source_tar};
+use super::manifest::pkg_manifest;
 
 use super::get_repo_dir;
 use super::get_repo_name;
@@ -16,12 +17,10 @@ use super::copy_folder;
 // manage global variables
 use super::{get_deps, add_dep};
 use super::{get_explicit, add_explicit, remove_explicit};
-use super::SYS_DB;
-use super::MAK_DIR;
-use super::PKG_DIR;
+use super::{SYS_DB, PKG_DB};
+use super::{MAK_DIR, PKG_DIR};
 
-use super::die;
-use super::log;
+use super::{die, log};
 
 use super::set_env_variable_if_undefined;
 
@@ -66,7 +65,6 @@ pub fn pkg_extract(pkg: &str) {
 
 	let dest_path = Path::new(source_dir.as_str());
 
-	println!("{:?}, {}", dest_path, des);
 	if res.contains("git+") {
 	    copy_folder(Path::new(des.as_str()), &dest_path).expect("Failed to copy git source");
 	}
@@ -98,7 +96,7 @@ pub fn pkg_depends(pkg: String, expl: bool, filter: bool, dep_type: String) {
 	return;
     }
 
-    if filter == false || explicit.contains(&pkg) || Path::new(SYS_DB).join(pkg.clone()).exists() {
+    if filter == false || explicit.contains(&pkg) || Path::new(&*SYS_DB).join(pkg.clone()).exists() {
 	return;
     }
 
@@ -207,6 +205,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 
 	pkg_build(package);
 
+	pkg_manifest(package);
     }
 }
 
@@ -232,10 +231,18 @@ pub fn pkg_build(pkg: &str) {
     // wait for build to finish
     let status = child.wait().expect("Failed to wait for command");
     if status.success() {
+
+	// Copy the repository files to the package directory.
+	let pkg_db_dir = format!("{}/{package_name}/{}/{package_name}", *PKG_DIR, PKG_DB, package_name = pkg);
+	mkcd(pkg_db_dir.as_str());
+	copy_folder(Path::new(get_repo_dir().as_str()), Path::new(pkg_db_dir.as_str())).expect("Failed to copy repository files to package directory");
+
+	// give info
 	log(pkg, "Successfully built package")
     } else {
 	die(pkg, "Build failed")
     }
+
 }
 
 pub fn build_action(c: &Context) {

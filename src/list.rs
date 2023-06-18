@@ -14,18 +14,18 @@ pub fn list_action(c: &Context) {
 
     if search.is_empty() {
         // get installed packages
-        let installed_packages: Vec<_> = read_a_dir_and_sort(&*SYS_DB);
+        let installed_packages: Vec<_> = read_a_dir_and_sort(&*SYS_DB, false);
 
         for package in installed_packages {
-            let version: String = cat(&package.path().join("version"))
-                .unwrap()
-                .replace(" ", "-")
-                .replace("\n", "");
-            println!(
-                "{} {}",
-                package.path().file_name().unwrap().to_str().unwrap(),
-                version
-            )
+            let version: String = cat(&package.join("version"))
+		.unwrap()
+		.replace(" ", "-")
+		.replace("\n", "");
+	    println!(
+		"{} {}",
+		package.file_name().unwrap().to_str().unwrap(),
+		version
+	    )
         }
     } else {
         for package in search {

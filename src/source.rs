@@ -29,6 +29,16 @@ use super::get_repo_name;
 use super::mkcd;
 use super::remove_chars_after_last;
 
+// decompress
+use std::fs;
+use super::strip_leading_dot_slash;
+use std::io::Read;
+use tar::Archive;
+use xz2::read::XzDecoder;
+use flate2::read::GzDecoder;
+use bzip2::read::BzDecoder;
+use zstd::stream::read::Decoder;
+
 // Given a line of input from the sources file, return an absolute
 // path to the source if it already exists, error if not.
 pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String, String) {
@@ -43,16 +53,16 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
 
     // both git and remote sources uses this dest
     let _dest = format!(
-        "{}/{}/{}{}",
-        *SRC_DIR,
-        package_name,
-        if !dest.is_empty() {
-            format!("{}/", dest)
-        } else {
-            dest
-        },
-        if !repo_name.is_empty() {
-            if let Some(index) = repo_name.find('#') {
+	"{}/{}/{}{}",
+	*SRC_DIR,
+	package_name,
+	if !dest.is_empty() {
+	    format!("{}/", dest)
+	} else {
+	    dest
+	},
+	if !repo_name.is_empty() {
+	    if let Some(index) = repo_name.find('#') {
                 repo_name.truncate(index);
             }
             if let Some(index) = repo_name.find('@') {
@@ -109,7 +119,7 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
             &package_name,
             format!("No local file '{}'", source).as_str(),
         );
-    // local
+	// local
     } else if print && _res == _des {
         println!("found {}", _res);
     }
@@ -206,17 +216,32 @@ pub fn pkg_source_git(package_name: &str, source: String) {
 // 	git reset --hard FETCH_HEAD
 }
 
-// TODO: finish this function
 pub fn pkg_source_tar(res: String) {
-    let repo_name = get_repo_name();
-    // tmp file
-    let tmp_file_name = format!("{}-tarball", repo_name);
-    let tmp_file_path = Path::new(&*TMP_DIR).join(tmp_file_name);
-    let mut tmp_file = File::create(&tmp_file_path);
-    // manifest
-    let tmp_file_manifest_name = format!("{}-tarball-manifest", repo_name);
-    let tmp_file_manifest_path = Path::new(&*TMP_DIR).join(tmp_file_manifest_name);
-    let mut tmp_file_manifest = File::create(&tmp_file_manifest_path);
+    let file = File::open(res.clone()).expect("Failed to open tar file");
+    let extension = Path::new(res.as_str()).extension().and_then(|ext| ext.to_str());
+    let mut decoder: Box<dyn Read> = match extension {
+	Some("xz") => Box::new(XzDecoder::new(file)),
+	Some("gz") => Box::new(GzDecoder::new(file)),
+	Some("bz2") => Box::new(BzDecoder::new(file)),
+	Some("zst") => Box::new(Decoder::new(file).expect("Failed to decompress tar.zst archive")),
+	_ => return,
+    };
+
+    let mut archive = Archive::new(&mut decoder);
+
+
+    // extract contents of tar directly to current dir
+    for entry in archive.entries().unwrap() {
+	let mut entry = entry.unwrap();
+	let path = entry.path().unwrap();
+	let file_name = path.file_name().unwrap();
+
+	let dest_path = Path::new(".").join(file_name);
+	if let Err(err) = entry.unpack(dest_path) {
+	    eprintln!("Failed to extract file: {}", err);
+	    continue
+    }
+	}
 }
 
 // Function to download files
@@ -271,10 +296,10 @@ pub async fn pkg_source_url(
         .expect("Failed to move tmp_file");
 
     Ok(())
-}
+    }
 
-pub fn print_progress(progress: u64, total_size: u64) {
-    let percent = (progress as f64 / total_size as f64) * 100.0;
+    pub fn print_progress(progress: u64, total_size: u64) {
+	let percent = (progress as f64 / total_size as f64) * 100.0;
     let formatted_progress = convert_bytes(progress);
     let formatted_total_size = convert_bytes(total_size);
     print!(

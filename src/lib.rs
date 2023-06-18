@@ -10,7 +10,7 @@ use std::fs;
 use std::fs::{DirEntry, File};
 use std::io::prelude::*;
 use std::io::{BufReader, Read, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // using this to remove duplicate path entries
 use std::collections::HashSet;

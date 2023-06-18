@@ -11,7 +11,6 @@ use super::get_repo_name;
 use super::read_a_files_lines;
 use super::remove_chars_after_last;
 use super::mkcd;
-use super::files_exists_in_current_dir;
 use super::copy_folder;
 
 // manage global variables
@@ -61,21 +60,23 @@ pub fn pkg_extract(pkg: &str) {
 
 	let source_dir: String = format!("{}/{}/{}", *MAK_DIR, pkg, dest.clone());
 	// Create the source's directories if not null.
-	if res == des {
+	if !des.is_empty() {
 	    mkcd(source_dir.as_str());
 	}
 
-	let source_file_name = Path::new(source_dir.as_str()).file_name().unwrap();
-	let dest_path = Path::new(source_dir.as_str()).join(source_file_name);
+	let dest_path = Path::new(source_dir.as_str());
 
+	println!("{:?}, {}", dest_path, des);
 	if res.contains("git+") {
-	    copy_folder(Path::new(res.as_str()), &dest_path).expect("Failed to copy git source");
+	    copy_folder(Path::new(des.as_str()), &dest_path).expect("Failed to copy git source");
 	}
-	else if res.contains("tar") {
+	else if res.contains(".tar") {
 	    pkg_source_tar(res);
 	}
-	else if files_exists_in_current_dir(res.as_str()) {
-	    fs::copy(res, &dest_path).expect("Failed to copy file");
+	else {
+	    let file_name = Path::new(res.as_str()).file_name().unwrap();
+	    let dest_path = Path::new(source_dir.as_str()).join(file_name);
+	    fs::copy(res.clone(), &dest_path).expect("Failed to copy file");
 	}
     }
 }
@@ -219,8 +220,6 @@ pub fn pkg_build(pkg: &str) {
     set_env_variable_if_undefined("CXX", "c++");
     set_env_variable_if_undefined("NM", "nm");
     set_env_variable_if_undefined("RANLIB", "ranlib");
-
-    println!("{:?}", std::env::current_dir());
 
     let executable = format!("{}/build", get_repo_dir());
     let install_dir = format!("{}/{}", *PKG_DIR, pkg);

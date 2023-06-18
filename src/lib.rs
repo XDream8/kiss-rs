@@ -255,27 +255,6 @@ pub fn set_env_variable_if_undefined(name: &str, value: &str) {
     }
 }
 
-pub fn files_exists_in_current_dir(directory: &str) -> bool {
-    if let Ok(entries) = fs::read_dir(directory) {
-	entries
-	    .filter_map(|entry| {
-		if let Ok(entry) = entry {
-		    let path = entry.path();
-		    if path.is_file() {
-			Some(path.file_name().unwrap().to_string_lossy().to_string())
-		    } else {
-			None
-		    }
-		} else {
-		    None
-		}
-	    })
-	    .any(|file_name| file_name.contains("*?*"))
-    } else {
-	false
-    }
-}
-
 // used by build command
 pub fn copy_folder(source: &Path, destination: &Path) -> Result<()> {
     if source.is_dir() {

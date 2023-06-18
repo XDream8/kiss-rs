@@ -30,8 +30,6 @@ use super::mkcd;
 use super::remove_chars_after_last;
 
 // decompress
-use std::fs;
-use super::strip_leading_dot_slash;
 use std::io::Read;
 use tar::Archive;
 use xz2::read::XzDecoder;
@@ -174,7 +172,7 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 		// place holder
 		pkg_source_git(&repo_name, res);
 	    } else {
-		pkg_source_url(&res, Path::new(&des));
+		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die("Failed to download file: {}", format!("{err}").as_str()));
 	    }
 	}
     }
@@ -201,7 +199,7 @@ pub fn pkg_source_git(package_name: &str, source: String) {
     );
 
     if !Path::new(".git").exists() {
-	let output = Command::new("git")
+	let _output = Command::new("git")
 	    .arg("init")
 	.output();
 }

@@ -10,7 +10,7 @@ use std::fs;
 use std::fs::{DirEntry, File};
 use std::io::prelude::*;
 use std::io::{BufReader, Read, Result};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 // using this to remove duplicate path entries
 use std::collections::HashSet;
@@ -39,7 +39,7 @@ pub static REPO_NAME: Lazy<Mutex<String>> = Lazy::new(|| {
     let repo_dir = get_repo_dir();
     let mut result: String = String::new();
     if Path::new(&repo_dir.as_str()).exists() {
-        result = get_directory_name(&repo_dir).to_owned();
+	result = get_directory_name(&repo_dir).to_owned();
     }
     Mutex::new(result)
 });

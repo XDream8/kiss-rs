@@ -249,6 +249,12 @@ pub fn get_env_variable(env: &str, default_value: String) -> String {
     }
 }
 
+pub fn set_env_variable_if_undefined(name: &str, value: &str) {
+    if env::var(name).is_err() {
+	env::set_var(name, value);
+    }
+}
+
 pub fn files_exists_in_current_dir(directory: &str) -> bool {
     if let Ok(entries) = fs::read_dir(directory) {
 	entries

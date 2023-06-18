@@ -15,19 +15,24 @@ use super::files_exists_in_current_dir;
 use super::copy_folder;
 
 // manage global variables
-    use super::{get_deps, add_dep};
+use super::{get_deps, add_dep};
 use super::{get_explicit, add_explicit, remove_explicit};
 use super::SYS_DB;
 use super::MAK_DIR;
+use super::PKG_DIR;
 
 use super::die;
 use super::log;
+
+use super::set_env_variable_if_undefined;
 
 // std
 use std::path::Path;
 use std::fs;
 // user inout
 use std::io::{self, BufRead};
+// build
+use std::process::{Command, Stdio};
 
 // TODO: finish this function
 pub fn pkg_extract(pkg: &str) {
@@ -129,9 +134,7 @@ pub fn pkg_depends(pkg: String, expl: bool, filter: bool, dep_type: String) {
 
 }
 
-pub fn build_action(c: &Context) {
-    let packages: Vec<&str> = get_args(&c);
-
+pub fn pkg_build_all(packages: Vec<&str>) {
     // find dependencies
     if !packages.is_empty() {
         for package in packages {
@@ -199,11 +202,43 @@ pub fn build_action(c: &Context) {
 
 	if Path::new(repo_dir.as_str()).join("sources").exists() {
 	    pkg_extract(package);
-	    continue
 	}
 
+	pkg_build(package);
 
     }
+}
 
+pub fn pkg_build(pkg: &str) {
+    mkcd(format!("{}/{}", *MAK_DIR, pkg).as_str());
 
+    log(pkg, "Starting build");
+
+    set_env_variable_if_undefined("AR", "ar");
+    set_env_variable_if_undefined("CC", "cc");
+    set_env_variable_if_undefined("CXX", "c++");
+    set_env_variable_if_undefined("NM", "nm");
+    set_env_variable_if_undefined("RANLIB", "ranlib");
+
+    let executable = format!("{}/build", get_repo_dir());
+    let install_dir = format!("{}/{}", *PKG_DIR, pkg);
+    let mut child = Command::new(executable)
+        .arg(install_dir)
+        .stdout(Stdio::inherit())
+        .spawn()
+        .expect("Failed to execute build file");
+
+    // wait for build to finish
+    let status = child.wait().expect("Failed to wait for command");
+    if status.success() {
+	log(pkg, "Successfully built package")
+    } else {
+	die(pkg, "Build failed")
+    }
+}
+
+pub fn build_action(c: &Context) {
+    let packages: Vec<&str> = get_args(&c);
+
+    pkg_build_all(packages)
 }

@@ -28,12 +28,18 @@ use once_cell::sync::Lazy;
 
 use std::sync::Mutex;
 
+// http client
+use ureq::{Agent, AgentBuilder};
+use std::time::Duration;
+
 // Variables
 // almost all global variables should be lazy
 
-// Experimental
-//pub static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| reqwest::Client::builder().gzip(true).build().unwrap());
-pub static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| reqwest::Client::new());
+// reusable lazy initialized HTTP CLIENT
+pub static HTTP_CLIENT: Lazy<Agent> = Lazy::new(|| AgentBuilder::new()
+						.timeout_read(Duration::from_secs(10))
+						.timeout_write(Duration::from_secs(10))
+						.build());
 
 pub static REPO_DIR: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(get_current_working_dir()));
 pub static REPO_NAME: Lazy<Mutex<String>> = Lazy::new(|| {

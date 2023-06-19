@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
-use reqwest::header::CONTENT_LENGTH;
+use ureq::Response;
 
 use std::process::Command;
 
@@ -245,8 +245,7 @@ pub fn pkg_source_tar(res: String) {
 }
 
 // Function to download files
-#[tokio::main]
-pub async fn pkg_source_url(
+pub fn pkg_source_url(
     download_source: &str,
     download_dest: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -257,36 +256,39 @@ pub async fn pkg_source_url(
         format!("Downloading {}", download_source).as_str(),
     );
 
-    let mut response = HTTP_CLIENT.get(download_source).send().await?;
+    let response: Response = HTTP_CLIENT.get(download_source).call()?;
 
     let total_size = response
-        .headers()
-        .get(CONTENT_LENGTH)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(0);
+        .header("Content-Length")
+        .and_then(|length| length.parse::<u64>().ok())
+	.unwrap_or(0);
     let mut downloaded = 0;
+    let mut buffer = [0; 8192];
 
     // get file_name from download_dest variable
     let file_name = format!("{}", download_dest.display())
-        .split("/")
-        .last()
-        .unwrap()
-        .to_owned();
+	.split("/")
+	.last()
+	.unwrap()
+	.to_owned();
 
     // tmp file
     let tmp_file_name = format!("{}-download", file_name);
     let tmp_file_path = Path::new(&*TMP_DIR).join(tmp_file_name);
     let mut tmp_file = File::create(&tmp_file_path)?;
 
-    while let Some(chunk) = response.chunk().await? {
-        let chunk_size = chunk.len() as u64;
+    let mut response_reader = response.into_reader();
 
-        downloaded += chunk_size;
+    while let Ok(bytes_read) = response_reader.read(&mut buffer) {
+	if bytes_read == 0 {
+	    break
+	}
+
+        downloaded += bytes_read as u64;
 
         print_progress(downloaded, total_size);
 
-        tmp_file.write_all(&chunk)?;
+        tmp_file.write_all(&buffer[..bytes_read])?;
     }
 
     println!("\rDownloading {}: 100% (Completed)", download_source);

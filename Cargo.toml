@@ -23,7 +23,7 @@ hex = "0.4"
 ## downloads
 ureq = { version = "2.7.0", features = [ "default" ] }
 ## signal handling
-ctrlc = "3.4"
+nix = { version = "0.26.1", default-features = false, features = [ "signal" ] }
 
 [profile.release]
 lto = "thin"

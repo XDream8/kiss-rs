@@ -1,3 +1,5 @@
+extern crate nix;
+
 // for cli-args
 use seahorse::{App, Command, Context};
 use std::env;
@@ -6,8 +8,7 @@ use std::process::exit;
 // signal handling
 use kiss::{create_tmp_dirs, pkg_clean};
 use std::process;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use nix::sys::signal::{SIGINT, SigHandler, SigAction, SaFlags, SigSet};
 
 use kiss::build::build_action;
 use kiss::checksum::checksum_action;
@@ -24,52 +25,48 @@ fn main() {
         .usage(format!("{} [file(s)] [args]", env!("CARGO_PKG_NAME")))
         .action(action)
         .command(
-            Command::new("checksum")
+	    Command::new("checksum")
                 .description("Generate checksums")
                 .alias("c")
                 .usage("kiss checksum")
                 .action(checksum_action),
         )
 	.command(
-            Command::new("build")
+	    Command::new("build")
                 .description("Build packages")
                 .alias("b")
                 .usage("kiss build <packages>")
                 .action(build_action),
 	)
         .command(
-            Command::new("download")
+	    Command::new("download")
                 .description("Download sources")
                 .alias("d")
                 .usage("kiss download")
                 .action(download_action),
         )
         .command(
-            Command::new("list")
+	    Command::new("list")
                 .description("List installed packages")
                 .alias("l")
                 .usage("kiss list <package>")
                 .action(list_action),
         )
         .command(
-            Command::new("search")
+	    Command::new("search")
                 .description("Search for packages")
                 .alias("s")
                 .usage("kiss search <package>")
                 .action(search_action),
         );
 
-    let interrupted = Arc::new(AtomicBool::new(false));
-
-    let interrupted_clone = Arc::clone(&interrupted);
-
     // Handle Ctrl-C
-    ctrlc::set_handler(move || {
-        interrupted_clone.store(true, Ordering::SeqCst);
-        println!("Received SIGINT signal");
-        process::exit(pkg_clean(0));
-    })
-	.expect("Error setting Ctrl-C handler");
+    unsafe {
+	let sig_action = SigAction::new(
+	    SigHandler::Handler(handle_sigint as extern "C" fn (nix::libc::c_int)),
+	    SaFlags::empty(), SigSet::empty(),);
+	let _ = nix::sys::signal::sigaction(SIGINT, &sig_action);
+    }
 
     // create tmp dirs
     create_tmp_dirs();
@@ -83,4 +80,9 @@ fn action(c: &Context) {
         c.help();
         exit(0);
     }
+}
+
+extern "C" fn handle_sigint(_signal: nix::libc::c_int) {
+    println!("Received SIGINT signal");
+    process::exit(pkg_clean(0));
 }

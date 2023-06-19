@@ -83,6 +83,9 @@ pub static KISS_DEBUG: Lazy<String> = Lazy::new(|| get_env_variable("KISS_DEBUG"
 pub static KISS_LVL: Lazy<String> = Lazy::new(|| get_env_variable("KISS_LVL", "1".to_owned()));
 pub static KISS_ROOT: Lazy<String> = Lazy::new(|| get_env_variable("KISS_ROOT", String::new()));
 
+pub static KISS_STRIP: Lazy<String> = Lazy::new(|| get_env_variable("KISS_STRIP", "1".to_owned()));
+pub static KISS_COMPRESS: Lazy<String> = Lazy::new(|| get_env_variable("KISS_COMPRESS", "gz".to_owned()));
+
 pub static KISS_PATH: Lazy<Vec<String>> = Lazy::new(|| {
     let env_var: String = get_env_variable("KISS_PATH", SYS_DB.to_owned());
 

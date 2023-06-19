@@ -43,7 +43,9 @@ pub fn pkg_find_version(name: &str, print: bool) -> String {
 
         if print {
             println!("{}:{}-{}", package_path.display(), ver_pre, rel_pre);
-        }
+        } else {
+	    return format!("{}-{}", ver_pre, rel_pre).to_owned();
+	}
     }
     name.to_owned()
 }

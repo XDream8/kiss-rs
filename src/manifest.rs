@@ -1,15 +1,15 @@
-use super::{SYS_DB, PKG_DB};
-use super::{MAK_DIR, PKG_DIR, TMP_DIR};
+use super::{PKG_DB};
+use super::{PKG_DIR, TMP_DIR};
 
 use super::read_a_dir_and_sort;
 
 // file libs
-    use std::fs::File;
-use std::io::{self, Write};
+use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 // logging
-use super::{die, log};
+use super::log;
 
 pub fn pkg_manifest(pkg: &str) {
     log(pkg, "Generating manifest");

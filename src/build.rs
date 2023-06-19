@@ -18,7 +18,8 @@ use super::copy_folder;
 use super::{get_deps, add_dep};
 use super::{get_explicit, add_explicit, remove_explicit};
 use super::{SYS_DB, PKG_DB};
-use super::{MAK_DIR, PKG_DIR};
+use super::{BIN_DIR, MAK_DIR, PKG_DIR};
+use super::{KISS_COMPRESS, KISS_STRIP};
 
 use super::{die, log};
 
@@ -26,11 +27,16 @@ use super::set_env_variable_if_undefined;
 
 // std
 use std::path::Path;
-use std::fs;
+use std::fs::{self, File};
 // user inout
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 // build
 use std::process::{Command, Stdio};
+// tar
+use tar::Builder;
+use flate2::write::GzEncoder;
+use xz2::write::XzEncoder;
+use bzip2::write::BzEncoder;
 
 // TODO: finish this function
 pub fn pkg_extract(pkg: &str) {
@@ -79,6 +85,199 @@ pub fn pkg_extract(pkg: &str) {
     }
 }
 
+// required for stripping
+fn is_matching_directory(path: &Path) -> bool {
+    let file_name = path.file_name().unwrap_or_default();
+    let parent_dir_name = path.parent().and_then(|p| p.file_name()).and_then(std::ffi::OsStr::to_str);
+
+    let is_sbin = file_name == "sbin";
+    let is_bin = file_name == "bin";
+    let is_lib = parent_dir_name == Some("lib");
+
+    is_sbin || is_bin || is_lib
+}
+
+// for stripping
+pub fn strip_files_recursive(directory: &Path) {
+    let entries = fs::read_dir(directory).expect("Failed to read directory");
+
+    let lib_and_exec_args: Vec<&str> = vec!("-s", "-R", ".comment", "-R", ".note");
+    let object_and_static_lib_args: &str = "-g -R .comment -R .note";
+
+    for entry in entries {
+	let entry = entry.unwrap();
+	let file_path = entry.path();
+
+	if file_path.is_dir() {
+	    strip_files_recursive(&file_path);
+	}
+	else if file_path.is_file() {
+	    if let Some(extension) = file_path.extension() {
+		if let Some(extension_str) = extension.to_str() {
+		    if extension_str == "o" || extension_str == "a" {
+			let command = format!("strip {} {}", object_and_static_lib_args, file_path.to_string_lossy());
+			println!("{}", command);
+			let status = Command::new("strip")
+			    .arg(object_and_static_lib_args)
+			    .arg(&file_path)
+			    .status().expect("Failed to strip file");
+			if !status.success() {
+			    die(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+			}
+		    }
+		    else if extension_str.contains("lib") {
+			let command = format!("strip {} {}", lib_and_exec_args.join(" "), file_path.to_string_lossy());
+			println!("{}", command);
+			let status = Command::new("strip")
+			    .args(&lib_and_exec_args)
+			    .arg(&file_path)
+			    .status().expect("Failed to strip file");
+			if !status.success() {
+			    die(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+			}
+		    }
+		}
+	    } else {
+		// assume it is a executable
+		let command = format!("strip {} {}", lib_and_exec_args.join(" "), file_path.to_string_lossy());
+		println!("{}", command);
+		let status = Command::new("strip")
+		    .args(&lib_and_exec_args)
+		    .arg(&file_path)
+		    .status().expect("Failed to strip file");
+		if !status.success() {
+		    die(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+		}
+	    }
+	}
+    }
+}
+
+pub fn pkg_strip(pkg: &str) {
+    // Strip package binaries and libraries. This saves space on the system as
+    // well as on the tarballs we ship for installation.
+    if Path::new(&*MAK_DIR).join(pkg).join("nostrip").exists() || *KISS_STRIP == "0" {
+	return
+    }
+
+    log(pkg, "Stripping binaries and libraries");
+
+    let manifest = format!("{}/{package_name}/{}/{package_name}/manifest", *PKG_DIR, PKG_DB, package_name = pkg);
+    let files = read_a_files_lines(manifest.as_str()).expect("Failed to read manifest");
+
+    for file in files {
+	let real_file = format!("{}/{}/{}", *PKG_DIR, pkg, file).replace("//", "/");
+	let real_file_path = Path::new(real_file.as_str());
+
+	if real_file_path.is_dir() && is_matching_directory(real_file_path) {
+	    strip_files_recursive(real_file_path);
+	}
+    }
+}
+
+// required for create_tar_archive function
+pub fn add_dirs_to_tar_recursive<W: Write>(builder: &mut Builder<W>, dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    // avoid stack overflow issues
+    // let mut stack: Vec<(PathBuf, PathBuf)> = vec![(PathBuf::from(dir), PathBuf::new())];
+
+    // while let Some((path, rel_path)) = stack.pop() {
+    // 	if path.is_dir() {
+    // 	    let dir_name = path.file_name().ok_or_else(|| {
+    // 		io::Error::new(io::ErrorKind::Other, format!("Failed to get directory name for path: {:?}", path))
+    // 	    })?;
+
+    // 	    let new_rel_path = rel_path.join(dir_name);
+
+    // 	    builder.append_dir(new_rel_path.clone(), &path)?;
+
+    // 	    let entries = fs::read_dir(&path)?;
+    // 	    for entry in entries {
+    // 		let entry = entry?;
+    // 		let entry_path = entry.path();
+    // 		stack.push((entry_path, new_rel_path.clone()));
+    // 	    }
+    // 	} else {
+    // 	    let file_name = path.file_name().ok_or_else(|| {
+    // 		io::Error::new(io::ErrorKind::Other, format!("Failed to get directory name for path: {:?}", path))
+    // 	    })?;
+    // 	    let new_rel_path = rel_path.join(file_name);
+    // 	    builder.append_file(new_rel_path.clone(), &mut File::open(&path)?)?;
+    // 	}
+    // }
+
+    for entry in fs::read_dir(dir)? {
+	let entry = entry?;
+	let entry_path = entry.path();
+	// let file_type = entry.file_type();
+	let rel_file_path = entry_path.strip_prefix(dir)?;
+
+	if entry.path().is_dir() {
+	    builder.append_dir_all(rel_file_path, entry.path())?;
+	} else {
+	    let mut file = File::open(entry.path())?;
+	    builder.append_file(rel_file_path, &mut file)?;
+	}
+    }
+
+    Ok(())
+}
+
+pub fn create_tar_archive(file: &str, compress_dir: &str, compress_type: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let compress_path = Path::new(compress_dir);
+
+    let file = match compress_type {
+	"gz" | "xz" | "bz2" => File::create(file)?,
+	_ => {
+	    eprintln!("Unsupported compression type specified.");
+	    return Ok(());
+	}
+    };
+
+    match compress_type {
+	"gz" => {
+	    let gz_encoder = GzEncoder::new(file, flate2::Compression::default());
+	    let mut gz_builder = Builder::new(gz_encoder);
+	    add_dirs_to_tar_recursive(&mut gz_builder, compress_path)?;
+	},
+	"bz2" => {
+	    let bz2_encoder = BzEncoder::new(file, bzip2::Compression::default());
+	    let mut bz2_builder = Builder::new(bz2_encoder);
+	    add_dirs_to_tar_recursive(&mut bz2_builder, compress_path)?;
+	},
+	"xz" => {
+	    let xz_encoder = XzEncoder::new(file, 6);
+	    let mut xz_builder = Builder::new(xz_encoder);
+	    add_dirs_to_tar_recursive(&mut xz_builder, compress_path)?;
+	},
+	// does not work
+	// "zst" => {
+	//     let tar_zstd_file = File::create(file)?;
+	//     let mut zstd_encoder = zstd::Encoder::new(tar_zstd_file, 0);
+	//     let mut zstd_builder = Builder::new(&mut zstd_encoder);
+	//     zstd_builder.append_dir_all(".", compress_path)?;
+	//     zstd_encoder.finish()?;
+	// }
+	_ => {
+	    eprintln!("Unsupported compression type");
+	}
+    }
+
+    Ok(())
+}
+
+pub fn pkg_tar(pkg: &str) {
+    log(pkg, "Creating tarball");
+
+    let pkg_ver = pkg_find_version(pkg, false);
+    let tar_file = format!("{}/{}@{}.tar.{}", *BIN_DIR, pkg, pkg_ver, *KISS_COMPRESS);
+
+    let pkg_dir = format!("{}/{}/", *PKG_DIR, pkg);
+
+    create_tar_archive(tar_file.as_str(), pkg_dir.as_str(), &*KISS_COMPRESS).expect("Failed to create tarball");
+
+    println!("{tar_file}");
+}
+
 // the method we use to store deps and explicit deps is different from original kiss pm.
 // we only store implicit deps in DEPS global var and explicit deps in EXPLICIT global var
 pub fn pkg_depends(pkg: String, expl: bool, filter: bool, dep_type: String) {
@@ -118,7 +317,7 @@ pub fn pkg_depends(pkg: String, expl: bool, filter: bool, dep_type: String) {
 	    pkg_depends(dep.clone(), false, filter, dependency_type);
 	}
     } else {
-	die(pac.as_str(), "not found");
+	return;
     }
 
     // TODO: add pkg_cache to condition
@@ -204,8 +403,10 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 	}
 
 	pkg_build(package);
-
 	pkg_manifest(package);
+	pkg_strip(package);
+
+	pkg_tar(package);
     }
 }
 

@@ -1,13 +1,13 @@
-use colored::*;
 use seahorse::Context;
 
 use std::path::Path;
-use std::process::exit;
 
 use super::cat;
 use super::get_args;
 use super::read_a_dir_and_sort;
 use super::SYS_DB;
+
+use super::die;
 
 pub fn list_action(c: &Context) {
     let search: Vec<&str> = get_args(&c);
@@ -41,8 +41,7 @@ pub fn list_action(c: &Context) {
                     version
                 )
             } else {
-                eprintln!("{} '{}' not found", "ERROR".yellow(), package);
-                exit(1);
+                die(package, "not found");
             }
         }
     }

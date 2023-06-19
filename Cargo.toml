@@ -5,13 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-dumb_terminal = ["colored/no-color"]
-
 [dependencies]
 ## cli
 seahorse = "2.1"
-colored = "2"
+termcolor = "1.2.0"
 ## parallel
 once_cell = "1.17.0"
 ## tar extraction

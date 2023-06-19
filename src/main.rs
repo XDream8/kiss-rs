@@ -67,7 +67,7 @@ fn main() {
     ctrlc::set_handler(move || {
         interrupted_clone.store(true, Ordering::SeqCst);
         println!("Received SIGINT signal");
-        process::exit(pkg_clean());
+        process::exit(pkg_clean(0));
     })
 	.expect("Error setting Ctrl-C handler");
 
@@ -75,7 +75,7 @@ fn main() {
     create_tmp_dirs();
     app.run(args);
     // Handle exit signal
-    process::exit(pkg_clean());
+    process::exit(pkg_clean(0));
 }
 
 fn action(c: &Context) {

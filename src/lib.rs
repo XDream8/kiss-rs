@@ -22,7 +22,7 @@ use std::env;
 use std::process::exit;
 
 // colored output
-use colored::*;
+use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use once_cell::sync::Lazy;
 
@@ -107,12 +107,27 @@ pub static EXPLICIT: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new
 
 // Functions
 pub fn die(m1: &str, m2: &str) {
-    eprintln!("{} {} {}", "->".yellow(), m1.cyan(), m2);
-    exit(pkg_clean());
+    let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
+
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow))).unwrap_or_else(|_| panic!("Failed to set color"));
+    write!(&mut stdout, "ERROR ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
+    write!(&mut stdout, "{} ", m1).unwrap();
+    stdout.reset().unwrap_or_else(|_| panic!("Failed to set color"));
+    writeln!(&mut stdout, "{}", m2).unwrap();
+    // exit
+    exit(pkg_clean(1));
 }
 
 pub fn log(m1: &str, m2: &str) {
-    println!("{} {} {}", "->".yellow(), m1.cyan().bold(), m2);
+    let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
+
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow))).unwrap_or_else(|_| panic!("Failed to set color"));
+    write!(&mut stdout, "-> ").unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
+    write!(&mut stdout, "{} ", m1).unwrap();
+    stdout.reset().unwrap_or_else(|_| panic!("Failed to set color"));
+    writeln!(&mut stdout, "{}", m2).unwrap();
 }
 
 pub fn create_tmp_dirs() -> i32 {
@@ -126,7 +141,7 @@ pub fn create_tmp_dirs() -> i32 {
     0
 }
 
-pub fn pkg_clean() -> i32 {
+pub fn pkg_clean(exit_code: i32) -> i32 {
     if *KISS_DEBUG == "0" {
         if *KISS_LVL == "1" {
             fs::remove_dir_all(&*PROC).expect("Failed to remove directory");
@@ -135,8 +150,8 @@ pub fn pkg_clean() -> i32 {
         }
     }
 
-    0
-}
+    exit_code
+    }
 
 pub fn add_dep(value: String) {
     let mut vector = DEPS.lock().unwrap();

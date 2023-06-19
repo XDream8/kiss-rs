@@ -6,6 +6,7 @@
 kiss-rs is currently **WIP**.
 
 ## completed features
+- [X] build(next step is installing the package)
 - [X] checksum
 - [X] download
 - [X] list

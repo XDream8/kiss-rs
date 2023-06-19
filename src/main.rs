@@ -24,13 +24,6 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .usage(format!("{} [file(s)] [args]", env!("CARGO_PKG_NAME")))
         .action(action)
-        .command(
-	    Command::new("checksum")
-                .description("Generate checksums")
-                .alias("c")
-                .usage("kiss checksum")
-                .action(checksum_action),
-        )
 	.command(
 	    Command::new("build")
                 .description("Build packages")
@@ -38,6 +31,13 @@ fn main() {
                 .usage("kiss build <packages>")
                 .action(build_action),
 	)
+	.command(
+	    Command::new("checksum")
+                .description("Generate checksums")
+                .alias("c")
+                .usage("kiss checksum")
+                .action(checksum_action),
+        )
         .command(
 	    Command::new("download")
                 .description("Download sources")

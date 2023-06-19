@@ -275,7 +275,7 @@ pub fn pkg_tar(pkg: &str) {
 
     create_tar_archive(tar_file.as_str(), pkg_dir.as_str(), &*KISS_COMPRESS).expect("Failed to create tarball");
 
-    println!("{tar_file}");
+    log(pkg, "Successfully created tarball");
 }
 
 // the method we use to store deps and explicit deps is different from original kiss pm.

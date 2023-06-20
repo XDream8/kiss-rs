@@ -189,34 +189,6 @@ pub fn pkg_strip(pkg: &str) {
 
 // required for create_tar_archive function
 pub fn add_dirs_to_tar_recursive<W: Write>(builder: &mut Builder<W>, dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    // avoid stack overflow issues
-    // let mut stack: Vec<(PathBuf, PathBuf)> = vec![(PathBuf::from(dir), PathBuf::new())];
-
-    // while let Some((path, rel_path)) = stack.pop() {
-    // 	if path.is_dir() {
-    // 	    let dir_name = path.file_name().ok_or_else(|| {
-    // 		io::Error::new(io::ErrorKind::Other, format!("Failed to get directory name for path: {:?}", path))
-    // 	    })?;
-
-    // 	    let new_rel_path = rel_path.join(dir_name);
-
-    // 	    builder.append_dir(new_rel_path.clone(), &path)?;
-
-    // 	    let entries = fs::read_dir(&path)?;
-    // 	    for entry in entries {
-    // 		let entry = entry?;
-    // 		let entry_path = entry.path();
-    // 		stack.push((entry_path, new_rel_path.clone()));
-    // 	    }
-    // 	} else {
-    // 	    let file_name = path.file_name().ok_or_else(|| {
-    // 		io::Error::new(io::ErrorKind::Other, format!("Failed to get directory name for path: {:?}", path))
-    // 	    })?;
-    // 	    let new_rel_path = rel_path.join(file_name);
-    // 	    builder.append_file(new_rel_path.clone(), &mut File::open(&path)?)?;
-    // 	}
-    // }
-
     for entry in fs::read_dir(dir)? {
 	let entry = entry?;
 	let entry_path = entry.path();

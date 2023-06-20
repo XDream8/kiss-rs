@@ -24,17 +24,17 @@ pub fn pkg_find_version(name: &str, print: bool) -> String {
 
     if version_path.exists() {
         let mut version: Vec<String> = read_a_files_lines(
-            &version_path,
+	    &version_path,
 	).expect(format!("Failed to read version file ({})", version_path.display()).as_str());
 
 	// part version and release
 	version = version
-            .first()
-            .unwrap()
-            .to_owned()
-            .split(" ")
-            .map(|e| e.to_owned())
-            .collect();
+	    .first()
+	    .unwrap()
+	    .to_owned()
+	    .split(" ")
+	    .map(|e| e.to_owned())
+	    .collect();
 
         // first element is version
         let ver_pre = version.clone().into_iter().nth(0).unwrap();
@@ -42,7 +42,7 @@ pub fn pkg_find_version(name: &str, print: bool) -> String {
         let rel_pre = version.clone().into_iter().nth(1).unwrap();
 
         if print {
-            println!("{}:{}-{}", package_path.display(), ver_pre, rel_pre);
+	    println!("{}:{}-{}", package_path.display(), ver_pre, rel_pre);
         } else {
 	    return format!("{}-{}", ver_pre, rel_pre).to_owned();
 	}
@@ -78,20 +78,20 @@ pub fn pkg_find(name: &str, print: bool) -> String {
     }
 
     if !wanted_package.is_empty() {
-        {
-            let wanted_package_clone = wanted_package.clone();
+        let wanted_package_clone = wanted_package.clone();
 
-            let repo_name: String = get_repo_name();
+        let repo_name: String = get_repo_name();
 
-            let directory_name = get_directory_name(&wanted_package_clone);
+        let directory_name = get_directory_name(&wanted_package_clone);
 
-            set_repo_dir(wanted_package.clone());
-            set_repo_name(directory_name.to_owned());
+        set_repo_dir(wanted_package.clone());
+        set_repo_name(directory_name.to_owned());
 
-            if repo_name.is_empty() {
-                die(&wanted_package.clone(), "Unable to get directory name");
-            }
+        if repo_name.is_empty() {
+            die(&wanted_package.clone(), "Unable to get directory name");
         }
+    } else if !print && wanted_package.is_empty() {
+	die(name, "not found");
     }
 
     wanted_package

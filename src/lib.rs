@@ -206,9 +206,7 @@ pub fn get_repo_dir() -> String {
 pub fn get_args(c: &Context) -> Vec<&str> {
     let mut args: Vec<&str> = vec![];
 
-    for arg in &c.args {
-        args.push(arg.as_str())
-    }
+    c.args.iter().for_each(|arg| args.push(arg));
 
     args
 }

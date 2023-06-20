@@ -305,7 +305,7 @@ pub fn pkg_depends(pkg: String, expl: bool, filter: bool, dep_type: String) {
     }
 
     // TODO: add pkg_cache to condition
-    if !expl || dep_type == "make" {
+    if expl == false || dep_type == "make" {
 	add_dep(pkg);
     }
 
@@ -433,5 +433,5 @@ pub fn pkg_build(pkg: &str) {
 pub fn build_action(c: &Context) {
     let packages: Vec<&str> = get_args(&c);
 
-    pkg_build_all(packages)
+    pkg_build_all(packages);
 }

@@ -28,8 +28,10 @@ use super::set_env_variable_if_undefined;
 // std
 use std::path::Path;
 use std::fs::{self, File};
-// user inout
+// user input
 use std::io::{self, BufRead, Write};
+// strip
+use std::io::Read;
 // build
 use std::process::{Command, Stdio};
 // tar
@@ -107,7 +109,7 @@ pub fn strip_files_recursive(directory: &Path) {
     for entry in entries {
 	let entry = entry.unwrap();
 	let file_path = entry.path();
-
+	
 	if file_path.is_dir() {
 	    strip_files_recursive(&file_path);
 	}
@@ -137,16 +139,26 @@ pub fn strip_files_recursive(directory: &Path) {
 			}
 		    }
 		}
-	    } else {
-		// assume it is a executable
-		let command = format!("strip {} {}", lib_and_exec_args.join(" "), file_path.to_string_lossy());
-		println!("{}", command);
-		let status = Command::new("strip")
-		    .args(&lib_and_exec_args)
-		    .arg(&file_path)
-		    .status().expect("Failed to strip file");
-		if !status.success() {
-		    die(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+	    }
+	    // Executable
+	    else {
+		// to detect if it is a elf executable
+		let mut header = [0u8; 4];
+		if let Err(_) = File::open(file_path.clone()).expect("Failed to open file").read_exact(&mut header) {
+		    die(get_repo_name().as_str(), "Failed to read file header");
+		}
+
+		if header == [0x7f, 0x45, 0x4c, 0x46] {
+		    // assume it is a executable
+		    let command = format!("strip {} {}", lib_and_exec_args.join(" "), file_path.to_string_lossy());
+		    println!("{}", command);
+		    let status = Command::new("strip")
+			.args(&lib_and_exec_args)
+			.arg(&file_path)
+			.status().expect("Failed to strip file");
+		    if !status.success() {
+			die(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+		    }
 		}
 	    }
 	}

@@ -19,11 +19,6 @@ use std::collections::HashSet;
 use seahorse::Context;
 use std::env;
 
-use std::process::exit;
-
-// colored output
-use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
-
 use once_cell::sync::Lazy;
 
 use std::sync::Mutex;
@@ -31,6 +26,46 @@ use std::sync::Mutex;
 // http client
 use ureq::{Agent, AgentBuilder};
 use std::time::Duration;
+
+// macros
+#[macro_export]
+macro_rules! log {
+    ($m1:expr, $m2:expr) => {{
+	use std::io::Write;
+	use termcolor::{ColorSpec, ColorChoice, StandardStream, WriteColor};
+
+	let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
+
+	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow))).unwrap_or_else(|_| panic!("Failed to set color"));
+	write!(&mut stdout, "-> ").unwrap();
+	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
+	write!(&mut stdout, "{} ", $m1).unwrap();
+	stdout.reset().unwrap_or_else(|_| panic!("Failed to set color"));
+	writeln!(&mut stdout, "{}", $m2).unwrap();
+    }};
+}
+
+
+#[macro_export]
+macro_rules! die {
+    ($m1:expr, $m2:expr) => {{
+	use std::io::Write;
+	use termcolor::{ColorSpec, ColorChoice, StandardStream, WriteColor};
+	use std::process::exit;
+	use super::pkg_clean;
+
+	let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
+
+	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow))).unwrap_or_else(|_| panic!("Failed to set color"));
+	write!(&mut stdout, "ERROR ").unwrap();
+	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
+	write!(&mut stdout, "{} ", $m1).unwrap();
+	stdout.reset().unwrap_or_else(|_| panic!("Failed to set color"));
+	writeln!(&mut stdout, "{}", $m2).unwrap();
+	// exit
+	exit(pkg_clean(1));
+    }};
+}
 
 // Variables
 // almost all global variables should be lazy
@@ -109,29 +144,6 @@ pub static DEPS: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()))
 pub static EXPLICIT: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 // Functions
-pub fn die(m1: &str, m2: &str) {
-    let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
-
-    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow))).unwrap_or_else(|_| panic!("Failed to set color"));
-    write!(&mut stdout, "ERROR ").unwrap();
-    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
-    write!(&mut stdout, "{} ", m1).unwrap();
-    stdout.reset().unwrap_or_else(|_| panic!("Failed to set color"));
-    writeln!(&mut stdout, "{}", m2).unwrap();
-    // exit
-    exit(pkg_clean(1));
-}
-
-pub fn log(m1: &str, m2: &str) {
-    let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
-
-    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow))).unwrap_or_else(|_| panic!("Failed to set color"));
-    write!(&mut stdout, "-> ").unwrap();
-    stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
-    write!(&mut stdout, "{} ", m1).unwrap();
-    stdout.reset().unwrap_or_else(|_| panic!("Failed to set color"));
-    writeln!(&mut stdout, "{}", m2).unwrap();
-}
 
 pub fn create_tmp_dirs() -> i32 {
     let dirs = vec![

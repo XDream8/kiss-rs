@@ -113,9 +113,9 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
     };
 
     if _res.is_empty() || _des.is_empty() {
-        die(
+        die!(
             &package_name,
-            format!("No local file '{}'", source).as_str(),
+            format!("No local file '{}'", source).as_str()
         );
 	// local
     } else if print && _res == _des {
@@ -142,7 +142,7 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
         return;
     }
 
-    log(&repo_name, "Reading sources");
+    log!(&repo_name, "Reading sources");
 
     let sources: Vec<String> = read_a_files_lines(sources_file).expect("Failed to read sources file");
 
@@ -172,7 +172,7 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 		// place holder
 		pkg_source_git(&repo_name, res);
 	    } else {
-		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die("Failed to download file: {}", format!("{err}").as_str()));
+		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die!("Failed to download file: {}", format!("{err}").as_str()));
 	    }
 	}
     }
@@ -189,7 +189,7 @@ pub fn pkg_source_git(package_name: &str, source: String) {
 	com.truncate(index);
     }
 
-    log(&package_name, format!("Checking out {}",
+    log!(&package_name, format!("Checking out {}",
 			       if !com.is_empty() {
 				   &com
 			       }
@@ -251,9 +251,9 @@ pub fn pkg_source_url(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let repo_name: String = get_repo_name();
 
-    log(
+    log!(
         &repo_name,
-        format!("Downloading {}", download_source).as_str(),
+        format!("Downloading {}", download_source).as_str()
     );
 
     let response: Response = HTTP_CLIENT.get(download_source).call()?;

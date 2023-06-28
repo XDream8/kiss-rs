@@ -77,9 +77,9 @@ pub fn pkg_checksum(package: &str) {
 	// ensure all data is written to the file
 	writer.flush().expect("Failed to write to checksums file");
 
-	log(get_repo_name().as_str(), "Generated checksums");
+	log!(get_repo_name().as_str(), "Generated checksums");
     } else {
-	log(get_repo_name().as_str(), "No sources needing checksums");
+	log!(get_repo_name().as_str(), "No sources needing checksums");
     }
 }
 

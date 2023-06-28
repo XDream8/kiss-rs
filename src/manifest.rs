@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use super::log;
 
 pub fn pkg_manifest(pkg: &str) {
-    log(pkg, "Generating manifest");
+    log!(pkg, "Generating manifest");
 
     // tmp file
     let tmp_file_name = format!("{}-manifest", pkg);

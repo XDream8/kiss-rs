@@ -41,7 +41,7 @@ pub fn list_action(c: &Context) {
                     version
                 )
             } else {
-                die(package, "not found");
+                die!(package, "not found");
             }
         }
     }

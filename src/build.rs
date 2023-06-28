@@ -42,7 +42,7 @@ use bzip2::write::BzEncoder;
 
 // TODO: finish this function
 pub fn pkg_extract(pkg: &str) {
-    log(pkg, "Extracting sources");
+    log!(pkg, "Extracting sources");
 
     let sources_file = format!("{}/sources", get_repo_dir());
     let sources: Vec<String> = read_a_files_lines(sources_file).expect("Failed to read sources file");
@@ -124,7 +124,7 @@ pub fn strip_files_recursive(directory: &Path) {
 			    .arg(&file_path)
 			    .status().expect("Failed to strip file");
 			if !status.success() {
-			    die(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+			    die!(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
 			}
 		    }
 		    else if extension_str.contains("lib") {
@@ -135,7 +135,7 @@ pub fn strip_files_recursive(directory: &Path) {
 			    .arg(&file_path)
 			    .status().expect("Failed to strip file");
 			if !status.success() {
-			    die(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+			    die!(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
 			}
 		    }
 		}
@@ -145,7 +145,7 @@ pub fn strip_files_recursive(directory: &Path) {
 		// to detect if it is a elf executable
 		let mut header = [0u8; 4];
 		if let Err(_) = File::open(file_path.clone()).expect("Failed to open file").read_exact(&mut header) {
-		    die(get_repo_name().as_str(), "Failed to read file header");
+		    die!(get_repo_name().as_str(), "Failed to read file header");
 		}
 
 		if header == [0x7f, 0x45, 0x4c, 0x46] {
@@ -157,7 +157,7 @@ pub fn strip_files_recursive(directory: &Path) {
 			.arg(&file_path)
 			.status().expect("Failed to strip file");
 		    if !status.success() {
-			die(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+			die!(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
 		    }
 		}
 	    }
@@ -172,7 +172,7 @@ pub fn pkg_strip(pkg: &str) {
 	return
     }
 
-    log(pkg, "Stripping binaries and libraries");
+    log!(pkg, "Stripping binaries and libraries");
 
     let manifest = format!("{}/{package_name}/{}/{package_name}/manifest", *PKG_DIR, PKG_DB, package_name = pkg);
     let files = read_a_files_lines(manifest.as_str()).expect("Failed to read manifest");
@@ -250,7 +250,7 @@ pub fn create_tar_archive(file: &str, compress_dir: &str, compress_type: &str) -
 }
 
 pub fn pkg_tar(pkg: &str) {
-    log(pkg, "Creating tarball");
+    log!(pkg, "Creating tarball");
 
     let pkg_ver = pkg_find_version(pkg, false);
     let tar_file = format!("{}/{}@{}.tar.{}", *BIN_DIR, pkg, pkg_ver, *KISS_COMPRESS);
@@ -259,7 +259,7 @@ pub fn pkg_tar(pkg: &str) {
 
     create_tar_archive(tar_file.as_str(), pkg_dir.as_str(), &*KISS_COMPRESS).expect("Failed to create tarball");
 
-    log(pkg, "Successfully created tarball");
+    log!(pkg, "Successfully created tarball");
 }
 
 // the method we use to store deps and explicit deps is different from original kiss pm.
@@ -346,11 +346,11 @@ pub fn pkg_build_all(packages: Vec<&str>) {
     if !deps.is_empty() {
 	implicit_text = format!(", implicit: {}", deps.join(" "));
     }
-    log("Building:", format!("explicit: {}{}", explicit.join(" "), implicit_text).as_str());
+    log!("Building:", format!("explicit: {}{}", explicit.join(" "), implicit_text).as_str());
 
     if !deps.is_empty() {
 	// Ask for confirmation if extra packages need to be built.
-	log("Continue?:", "Press Enter to continue or Ctrl+C to abort");
+	log!("Continue?:", "Press Enter to continue or Ctrl+C to abort");
 
 	// get user input
 	io::stdin().lock().lines().next();
@@ -376,7 +376,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 	// print status
 	build_cur += 1;
 	let build_status: String = format!("Building package ({}/{})", build_cur, package_count);
-	log(package, build_status.as_str());
+	log!(package, build_status.as_str());
 
 	pkg_find_version(package, false);
 
@@ -397,7 +397,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 pub fn pkg_build(pkg: &str) {
     mkcd(format!("{}/{}", *MAK_DIR, pkg).as_str());
 
-    log(pkg, "Starting build");
+    log!(pkg, "Starting build");
 
     set_env_variable_if_undefined("AR", "ar");
     set_env_variable_if_undefined("CC", "cc");
@@ -423,9 +423,9 @@ pub fn pkg_build(pkg: &str) {
 	copy_folder(Path::new(get_repo_dir().as_str()), Path::new(pkg_db_dir.as_str())).expect("Failed to copy repository files to package directory");
 
 	// give info
-	log(pkg, "Successfully built package")
+	log!(pkg, "Successfully built package")
     } else {
-	die(pkg, "Build failed")
+	die!(pkg, "Build failed")
     }
 
 }

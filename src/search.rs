@@ -88,10 +88,10 @@ pub fn pkg_find(name: &str, print: bool) -> String {
         set_repo_name(directory_name.to_owned());
 
         if repo_name.is_empty() {
-            die(&wanted_package.clone(), "Unable to get directory name");
+            die!(&wanted_package.clone(), "Unable to get directory name");
         }
     } else if !print && wanted_package.is_empty() {
-	die(name, "not found");
+	die!(name, "not found");
     }
 
     wanted_package

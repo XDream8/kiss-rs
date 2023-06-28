@@ -125,10 +125,7 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
 }
 
 pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
-    if pkg.is_empty() {
-	pkg_find_version(get_repo_name().as_str(), false);
-    }
-    else {
+    if !pkg.is_empty() {
 	pkg_find_version(pkg, false);
     }
 
@@ -218,8 +215,8 @@ pub fn pkg_source_tar(res: String) {
     let file = File::open(res.clone()).expect("Failed to open tar file");
     let extension = Path::new(res.as_str()).extension().and_then(|ext| ext.to_str());
     let mut decoder: Box<dyn Read> = match extension {
-	Some("xz") => Box::new(XzDecoder::new(file)),
 	Some("gz") => Box::new(GzDecoder::new(file)),
+	Some("xz") => Box::new(XzDecoder::new(file)),
 	Some("bz2") => Box::new(BzDecoder::new(file)),
 	Some("zst") => Box::new(Decoder::new(file).expect("Failed to decompress tar.zst archive")),
 	_ => return,

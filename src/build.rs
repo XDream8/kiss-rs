@@ -212,39 +212,21 @@ pub fn create_tar_archive(file: &str, compress_dir: &str, compress_type: &str) -
     let file = match compress_type {
 	"gz" | "xz" | "bz2" => File::create(file)?,
 	_ => {
-	    eprintln!("Unsupported compression type specified.");
-	    return Ok(());
+	    eprintln!("Unsupported compression type specified, falling back to gz");
+	    File::create(file)?
 	}
     };
 
-    match compress_type {
-	"gz" => {
-	    let gz_encoder = GzEncoder::new(file, flate2::Compression::default());
-	    let mut gz_builder = Builder::new(gz_encoder);
-	    add_dirs_to_tar_recursive(&mut gz_builder, compress_path)?;
-	},
-	"bz2" => {
-	    let bz2_encoder = BzEncoder::new(file, bzip2::Compression::default());
-	    let mut bz2_builder = Builder::new(bz2_encoder);
-	    add_dirs_to_tar_recursive(&mut bz2_builder, compress_path)?;
-	},
-	"xz" => {
-	    let xz_encoder = XzEncoder::new(file, 6);
-	    let mut xz_builder = Builder::new(xz_encoder);
-	    add_dirs_to_tar_recursive(&mut xz_builder, compress_path)?;
-	},
-	// does not work
-	// "zst" => {
-	//     let tar_zstd_file = File::create(file)?;
-	//     let mut zstd_encoder = zstd::Encoder::new(tar_zstd_file, 0);
-	//     let mut zstd_builder = Builder::new(&mut zstd_encoder);
-	//     zstd_builder.append_dir_all(".", compress_path)?;
-	//     zstd_encoder.finish()?;
-	// }
-	_ => {
-	    eprintln!("Unsupported compression type");
-	}
-    }
+    let encoder: Box<dyn Write> = match compress_type {
+	"gz" => Box::new(GzEncoder::new(file, flate2::Compression::default())),
+	"bz2" => Box::new(BzEncoder::new(file, bzip2::Compression::default())),
+	"xz" => Box::new(XzEncoder::new(file, 6)),
+	// "zst" => Box::new(zstd::Encoder::new(file, 0)),
+	_ => Box::new(GzEncoder::new(file, flate2::Compression::default())),
+    };
+
+    let mut builder = Builder::new(encoder);
+    add_dirs_to_tar_recursive(&mut builder, compress_path)?;
 
     Ok(())
 }

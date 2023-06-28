@@ -209,22 +209,22 @@ pub fn add_dirs_to_tar_recursive<W: Write>(builder: &mut Builder<W>, dir: &Path)
 pub fn create_tar_archive(file: &str, compress_dir: &str, compress_type: &str) -> Result<(), Box<dyn std::error::Error>> {
     let compress_path = Path::new(compress_dir);
 
-    let file = match compress_type {
-	"gz" | "xz" | "bz2" => File::create(file)?,
-	_ => {
-	    eprintln!("Unsupported compression type specified, falling back to gz");
-	    File::create(file)?
-	}
-    };
+    // create tarball file
+    let file = File::create(file)?;
 
+    // encoder to use
     let encoder: Box<dyn Write> = match compress_type {
 	"gz" => Box::new(GzEncoder::new(file, flate2::Compression::default())),
 	"bz2" => Box::new(BzEncoder::new(file, bzip2::Compression::default())),
 	"xz" => Box::new(XzEncoder::new(file, 6)),
-	// "zst" => Box::new(zstd::Encoder::new(file, 0)),
-	_ => Box::new(GzEncoder::new(file, flate2::Compression::default())),
+	"zst" => Box::new(zstd::stream::Encoder::new(file, 0).unwrap()),
+	_ => {
+	    eprintln!("Unsupported compression type specified, falling back to gz");
+	    Box::new(GzEncoder::new(file, flate2::Compression::default()))
+	}
     };
 
+    // create compressed tar archive
     let mut builder = Builder::new(encoder);
     add_dirs_to_tar_recursive(&mut builder, compress_path)?;
 

@@ -166,7 +166,7 @@ pub fn pkg_clean(exit_code: i32) -> i32 {
     }
 
     exit_code
-    }
+}
 
 pub fn add_dep(value: String) {
     let mut vector = DEPS.lock().unwrap();
@@ -265,15 +265,6 @@ pub fn get_current_working_dir() -> String {
     }
 }
 
-pub fn get_current_directory_name() -> Option<String> {
-    if let Ok(current_dir) = env::current_dir() {
-        if let Some(directory_name) = current_dir.file_name() {
-            return Some(directory_name.to_string_lossy().into());
-        }
-    }
-    None
-}
-
 pub fn get_directory_name(path: &str) -> &str {
     let path = Path::new(path);
 
@@ -317,12 +308,6 @@ pub fn copy_folder(source: &Path, destination: &Path) -> Result<()> {
     }
 
     Ok(())
-}
-
-pub fn file_exists_in_current_dir(filename: &str) -> bool {
-    Path::new(&get_current_working_dir())
-        .join(filename)
-        .exists()
 }
 
 pub fn read_a_dir_and_sort(path: &str, recursive: bool) -> Vec<PathBuf> {

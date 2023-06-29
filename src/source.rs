@@ -165,11 +165,11 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 
 	// if it is a local source both res and des are set to the same value
 	if res != des {
-	    if !skip_git && res.contains("git+") {
+	    if !skip_git && res.starts_with("git+") {
 		// place holder
 		pkg_source_git(&repo_name, res);
-	    } else {
-		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die!("Failed to download file: {}", format!("{err}").as_str()));
+	    } else if !res.starts_with("git+") {
+		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die!("Failed to download file: ", format!("{err}").as_str()));
 	    }
 	}
     }
@@ -198,22 +198,13 @@ pub fn pkg_source_git(package_name: &str, source: String) {
     if !Path::new(".git").exists() {
 	let _output = Command::new("git")
 	    .arg("init")
-	.output();
-}
-
-// com=${2##*[@#]}
-// com=${com#"${2%[#@]*}"}
-
-// git remote set-url origin "${2%[#@]*}" 2>/dev/null ||
-//     git remote add origin "${2%[#@]*}"
-
-// 	git fetch --depth=1 origin "$com"
-// 	git reset --hard FETCH_HEAD
+	    .output();
+    }
 }
 
 pub fn pkg_source_tar(res: String) {
-    let file = File::open(res.clone()).expect("Failed to open tar file");
-    let extension = Path::new(res.as_str()).extension().and_then(|ext| ext.to_str());
+    let file: File = File::open(res.clone()).expect("Failed to open tar file");
+    let extension: Option<&str> = Path::new(res.as_str()).extension().and_then(|ext| ext.to_str());
     let mut decoder: Box<dyn Read> = match extension {
 	Some("gz") => Box::new(GzDecoder::new(file)),
 	Some("xz") => Box::new(XzDecoder::new(file)),
@@ -222,7 +213,7 @@ pub fn pkg_source_tar(res: String) {
 	_ => return,
     };
 
-    let mut archive = Archive::new(&mut decoder);
+    let mut archive: Archive<&mut Box<dyn std::io::Read>> = Archive::new(&mut decoder);
 
 
     // extract contents of tar directly to current dir
@@ -255,24 +246,24 @@ pub fn pkg_source_url(
 
     let response: Response = HTTP_CLIENT.get(download_source).call()?;
 
-    let total_size = response
+    let total_size: u64 = response
         .header("Content-Length")
         .and_then(|length| length.parse::<u64>().ok())
 	.unwrap_or(0);
-    let mut downloaded = 0;
-    let mut buffer = [0; 8192];
+    let mut downloaded: u64 = 0;
+    let mut buffer: [u8; 8192] = [0; 8192];
 
     // get file_name from download_dest variable
-    let file_name = format!("{}", download_dest.display())
+    let file_name: String = format!("{}", download_dest.display())
 	.split("/")
 	.last()
 	.unwrap()
 	.to_owned();
 
     // tmp file
-    let tmp_file_name = format!("{}-download", file_name);
+    let tmp_file_name: String = format!("{}-download", file_name);
     let tmp_file_path = Path::new(&*TMP_DIR).join(tmp_file_name);
-    let mut tmp_file = File::create(&tmp_file_path)?;
+    let mut tmp_file: File = File::create(&tmp_file_path)?;
 
     let mut response_reader = response.into_reader();
 
@@ -297,10 +288,10 @@ pub fn pkg_source_url(
     Ok(())
     }
 
-    pub fn print_progress(progress: u64, total_size: u64) {
-	let percent = (progress as f64 / total_size as f64) * 100.0;
-    let formatted_progress = convert_bytes(progress);
-    let formatted_total_size = convert_bytes(total_size);
+pub fn print_progress(progress: u64, total_size: u64) {
+    let percent: f64 = (progress as f64 / total_size as f64) * 100.0;
+    let formatted_progress: String = convert_bytes(progress);
+    let formatted_total_size: String = convert_bytes(total_size);
     print!(
         "\rDownloading... {:.2}% ({}/{})",
         percent, formatted_progress, formatted_total_size
@@ -313,20 +304,20 @@ pub fn convert_bytes(bytes: u64) -> String {
     if bytes < UNIT {
         return format!("{} B", bytes);
     }
-    let exp = (bytes as f64).log(UNIT as f64) as u32;
+    let exp: u32 = (bytes as f64).log(UNIT as f64) as u32;
     let pre = "KMGTPE".chars().nth(exp as usize - 1).unwrap();
-    let value = bytes as f64 / f64::powi(UNIT as f64, exp as i32);
-	format!("{:.1} {}B", value, pre)
-    }
+    let value: f64 = bytes as f64 / f64::powi(UNIT as f64, exp as i32);
+    format!("{:.1} {}B", value, pre)
+}
 
-    pub fn download_action(c: &Context) {
-	let packages: Vec<&str> = get_args(&c);
+pub fn download_action(c: &Context) {
+    let packages: Vec<&str> = get_args(&c);
 
-	if !packages.is_empty() {
-            for package in packages {
-		pkg_source(package, false, true);
-            }
-	} else {
-            pkg_source("", false, true);
-	}
+    if !packages.is_empty() {
+        for package in packages {
+	    pkg_source(package, false, true);
+        }
+    } else {
+        pkg_source("", false, true);
     }
+}

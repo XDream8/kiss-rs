@@ -2,6 +2,7 @@
 pub mod source;
 pub mod build;
 pub mod manifest;
+pub mod install;
 // complete
 pub mod checksum;
 pub mod list;
@@ -178,6 +179,13 @@ pub fn get_deps() -> Vec<String> {
     vector.iter().cloned().collect()
 }
 
+pub fn remove_dep(element: &str) {
+    let mut vector = DEPS.lock().unwrap();
+    if let Some(index) = vector.iter().position(|x| *x == element) {
+	vector.remove(index);
+    }
+}
+
 pub fn add_explicit(value: String) {
     let mut vector = EXPLICIT.lock().unwrap();
     vector.push(value);
@@ -188,7 +196,7 @@ pub fn get_explicit() -> Vec<String> {
     vector.iter().cloned().collect()
 }
 
-pub fn remove_explicit(element: String) {
+pub fn remove_explicit(element: &str) {
     let mut vector = EXPLICIT.lock().unwrap();
     if let Some(index) = vector.iter().position(|x| *x == element) {
 	vector.remove(index);

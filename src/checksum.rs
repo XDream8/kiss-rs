@@ -6,7 +6,7 @@ use super::get_repo_name;
 
 use super::read_a_files_lines;
 
-use super::log;
+use super::{log, die};
 
 use super::source::pkg_source;
 use super::source::pkg_source_resolve;
@@ -82,11 +82,11 @@ pub fn pkg_checksum_gen(repo_dir: String) -> Vec<String> {
 		.to_owned();
 	}
 
-	if !source.is_empty() {
+	if !source.is_empty() && !source.starts_with("git+") {
 	    let (res, des) = pkg_source_resolve(source, dest, false);
 
 	    // if it is a local source res equals to des
-	    if res == des && !res.contains("git+") {
+	    if res == des {
 		hashes.push(get_file_hash(&des).expect("Failed to generate checksums"));
 	    }
 	}
@@ -108,8 +108,20 @@ pub fn get_file_hash(file_path: &str) -> Result<String> {
     Ok(hex::encode(hash_output))
 }
 
-pub fn pkg_verify(pkg: &str) {
-    log!(get_repo_name(), "Verifying sources");
+pub fn pkg_verify(pkg: &str, repo_dir: String) {
+    log!(pkg, "Verifying sources");
+
+    let hashes: Vec<String> = pkg_checksum_gen(repo_dir.clone());
+    let checksums: Vec<String> = read_a_files_lines(format!("{}/checksums", repo_dir).as_str()).expect("No checksums file");
+
+    for (element1, element2) in hashes.iter().zip(checksums.iter()) {
+	println!("- {}\n+ {}", element2, element1);
+	// checksum mismatch
+	if element1 != element2 {
+	    die!(pkg, "Checksum mismatch");
+	}
+    }
+
 }
 
 pub fn checksum_action(c: &Context) {

@@ -2,9 +2,11 @@
 use seahorse::Context;
 use super::get_args;
 
+use super::checksum::pkg_verify;
 use super::search::{pkg_find, pkg_find_version};
 use super::source::{pkg_source, pkg_source_resolve, pkg_source_tar};
 use super::manifest::pkg_manifest;
+use super::install::pkg_cache;
 
 use super::get_repo_dir;
 use super::get_repo_name;
@@ -15,7 +17,7 @@ use super::mkcd;
 use super::copy_folder;
 
 // manage global variables
-use super::{get_deps, add_dep};
+use super::{get_deps, add_dep, remove_dep};
 use super::{get_explicit, add_explicit, remove_explicit};
 use super::{SYS_DB, PKG_DB};
 use super::{BIN_DIR, MAK_DIR, PKG_DIR};
@@ -29,7 +31,7 @@ use super::set_env_variable_if_undefined;
 use std::path::Path;
 use std::fs::{self, File};
 // user input
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead,Write};
 // strip
 use std::io::Read;
 // build
@@ -199,6 +201,7 @@ pub fn add_dirs_to_tar_recursive<W: Write>(builder: &mut Builder<W>, dir: &Path)
 	    builder.append_dir_all(rel_file_path, entry.path())?;
 	} else {
 	    let mut file = File::open(entry.path())?;
+	    println!("{:?}", file);
 	    builder.append_file(rel_file_path, &mut file)?;
 	}
     }
@@ -217,7 +220,14 @@ pub fn create_tar_archive(file: &str, compress_dir: &str, compress_type: &str) -
 	"gz" => Box::new(GzEncoder::new(file, flate2::Compression::default())),
 	"bz2" => Box::new(BzEncoder::new(file, bzip2::Compression::default())),
 	"xz" => Box::new(XzEncoder::new(file, 6)),
-	"zst" => Box::new(zstd::stream::Encoder::new(file, 0).unwrap()),
+	// we use a BufWriter for zstd
+	"zst" => {
+	    die!("", "zstd compression is broken at the moment, consider using another compression type - export KISS_COMPRESS=gz");
+	    // for zstd compression
+	    // let file_writer = BufWriter::new(file);
+
+	    // Box::new(zstd::stream::Encoder::new(file_writer, 0)?)
+	},
 	_ => {
 	    eprintln!("Unsupported compression type specified, falling back to gz");
 	    Box::new(GzEncoder::new(file, flate2::Compression::default()))
@@ -227,6 +237,8 @@ pub fn create_tar_archive(file: &str, compress_dir: &str, compress_type: &str) -
     // create compressed tar archive
     let mut builder = Builder::new(encoder);
     add_dirs_to_tar_recursive(&mut builder, compress_path)?;
+
+    builder.finish()?;
 
     Ok(())
 }
@@ -315,7 +327,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 
     // If an explicit package is a dependency of another explicit package,
     // remove it from the explicit list.
-    for package in get_explicit() {
+    for package in get_explicit().iter() {
 	if deps.contains(&package) {
 	    remove_explicit(package)
 	}
@@ -339,20 +351,34 @@ pub fn pkg_build_all(packages: Vec<&str>) {
     }
 
     // TOOD: add check for prebuilt dependencies
-    // for package in ...
 
+    log!("", "Checking for pre-built dependencies");
+    // Install any pre-built dependencies if they exist in the binary
+    // directory and are up to date.
+    for pkg in get_deps().iter() {
+	if pkg_cache(pkg) {
+	    log!(pkg, "Found pre-built binary");
+
+	    remove_dep(pkg);
+	}
+    }
+
+
+    let deps = get_deps();
     let all_packages = deps.iter().chain(explicit.iter());
 
-    let package_count: usize = all_packages.clone().count();
-
+    // download and check sources
     for package in all_packages.clone() {
 	pkg_source(package, false, true);
 
-	// TODO: add pkg_verify function and complete this code
-	// ! [ -f "$repo_dir/sources" ] || pkg_verify "$pkg"
+	if Path::new(get_repo_dir().as_str()).join("sources").exists() {
+	    pkg_verify(package, get_repo_dir());
+	}
     }
 
+    // build process
     let mut build_cur: usize = 0;
+    let package_count: usize = all_packages.clone().count();
 
     for package in all_packages {
 	// print status

@@ -75,6 +75,11 @@ pub fn pkg_find(name: &str, print: bool) -> String {
 		break;
 	    }
         }
+
+	// if wanted_package is found break out of loop
+	if !print && !wanted_package.is_empty() {
+	    break;
+	}
     }
 
     if !wanted_package.is_empty() {

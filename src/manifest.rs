@@ -1,12 +1,12 @@
 use super::{PKG_DB};
-use super::{PKG_DIR, TMP_DIR};
+use super::PKG_DIR;
 
 use super::read_a_dir_and_sort;
+use super::tmp_file;
 
-// file libs
-use std::fs::File;
+// libs
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 // logging
 use super::log;
@@ -14,10 +14,7 @@ use super::log;
 pub fn pkg_manifest(pkg: &str) {
     log!(pkg, "Generating manifest");
 
-    // tmp file
-    let tmp_file_name = format!("{}-manifest", pkg);
-    let tmp_file_path = Path::new(&*TMP_DIR).join(tmp_file_name);
-    let mut tmp_file = File::create(&tmp_file_path).expect("Failed to create tmp file");
+    let (mut tmp_file, tmp_file_path) = tmp_file(pkg, "manifest").expect("Failed to create tmp_file");
 
     // Create a list of all files and directories. Append '/' to the end of
     // directories so they can be easily filtered out later. Also filter out
@@ -63,6 +60,6 @@ pub fn pkg_manifest(pkg: &str) {
     }
 
     // copy manifest file to actual dest
-    std::fs::copy(tmp_file_path.to_string_lossy().into_owned(), pkg_manifest_pathbuf)
+    std::fs::copy(tmp_file_path, pkg_manifest_pathbuf)
 	.expect("Failed to move tmp_file");
 }

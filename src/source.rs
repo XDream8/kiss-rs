@@ -21,13 +21,12 @@ use super::search::pkg_find_version;
 // global variables
 use super::HTTP_CLIENT;
 use super::SRC_DIR;
-use super::TMP_DIR;
 
-use super::get_repo_dir;
-use super::get_repo_name;
+use super::{get_repo_dir, get_repo_name};
 
 use super::mkcd;
 use super::remove_chars_after_last;
+use super::tmp_file;
 
 // decompress
 use std::io::Read;
@@ -261,9 +260,7 @@ pub fn pkg_source_url(
 	.to_owned();
 
     // tmp file
-    let tmp_file_name: String = format!("{}-download", file_name);
-    let tmp_file_path = Path::new(&*TMP_DIR).join(tmp_file_name);
-    let mut tmp_file: File = File::create(&tmp_file_path)?;
+    let (mut tmp_file, tmp_file_path) = tmp_file(file_name.as_str(), "download")?;
 
     let mut response_reader = response.into_reader();
 
@@ -272,17 +269,17 @@ pub fn pkg_source_url(
 	    break
 	}
 
-        downloaded += bytes_read as u64;
+	downloaded += bytes_read as u64;
 
-        print_progress(downloaded, total_size);
+	print_progress(downloaded, total_size);
 
-        tmp_file.write_all(&buffer[..bytes_read])?;
+	tmp_file.write_all(&buffer[..bytes_read])?;
     }
 
     println!("\rDownloading {}: 100% (Completed)", download_source);
 
     // move tmp_file
-    std::fs::rename(tmp_file_path.to_string_lossy().into_owned(), download_dest)
+    std::fs::rename(tmp_file_path, download_dest)
         .expect("Failed to move tmp_file");
 
     Ok(())

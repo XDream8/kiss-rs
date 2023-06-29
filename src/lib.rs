@@ -348,3 +348,10 @@ pub fn read_a_dir_and_sort(path: &str, recursive: bool) -> Vec<PathBuf> {
     filtered_entries.sort();
     return filtered_entries;
 }
+
+pub fn tmp_file(name: &str, suffix: &str) -> Result<(File, PathBuf)> {
+    let tmp_file_name: String = format!("{}-{}", name, suffix);
+    let tmp_file_path = Path::new(&*TMP_DIR).join(tmp_file_name);
+
+    Ok((File::create(&tmp_file_path)?, tmp_file_path))
+}

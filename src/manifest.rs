@@ -1,15 +1,16 @@
-use super::{PKG_DB};
+use super::PKG_DB;
 use super::PKG_DIR;
 
 use super::read_a_dir_and_sort;
+use super::read_a_files_lines;
 use super::tmp_file;
 
 // libs
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // logging
-use super::log;
+use super::{log, die};
 
 pub fn pkg_manifest(pkg: &str) {
     log!(pkg, "Generating manifest");
@@ -62,4 +63,25 @@ pub fn pkg_manifest(pkg: &str) {
     // copy manifest file to actual dest
     std::fs::copy(tmp_file_path, pkg_manifest_pathbuf)
 	.expect("Failed to move tmp_file");
+}
+
+pub fn pkg_manifest_validate(pkg: &str, path: &str, manifest_path: PathBuf) {
+    log!(pkg, "Checking if manifest is valid");
+
+    let mut count: usize = 0;
+
+    let manifest_elements: Vec<String> = read_a_files_lines(&manifest_path).expect("Failed to read manifest file");
+
+    for line in manifest_elements {
+	let element_path: PathBuf = Path::new(&path).join(line.clone());
+
+	if !element_path.exists() {
+	    println!("{}", line);
+	    count += 1;
+	}
+    }
+
+    if count != 0 {
+	die!(pkg, format!("manifest contains {} non-existant files", count));
+    }
 }

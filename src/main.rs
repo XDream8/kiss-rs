@@ -15,6 +15,7 @@ use kiss::checksum::checksum_action;
 use kiss::list::list_action;
 use kiss::search::search_action;
 use kiss::source::download_action;
+use kiss::install::install_action;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -58,6 +59,13 @@ fn main() {
                 .alias("s")
                 .usage("kiss search <package>")
                 .action(search_action),
+        )
+	.command(
+	    Command::new("install")
+                .description("Install packages")
+                .alias("i")
+                .usage("kiss install <package>")
+                .action(install_action),
         );
 
     // Handle Ctrl-C

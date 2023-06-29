@@ -6,7 +6,7 @@ use super::checksum::pkg_verify;
 use super::search::{pkg_find, pkg_find_version};
 use super::source::{pkg_source, pkg_source_resolve, pkg_source_tar};
 use super::manifest::pkg_manifest;
-use super::install::pkg_cache;
+use super::install::{pkg_cache, pkg_install};
 
 use super::get_repo_dir;
 use super::get_repo_name;
@@ -350,16 +350,17 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 	io::stdin().lock().lines().next();
     }
 
-    // TOOD: add check for prebuilt dependencies
-
     log!("", "Checking for pre-built dependencies");
     // Install any pre-built dependencies if they exist in the binary
     // directory and are up to date.
     for pkg in get_deps().iter() {
-	if pkg_cache(pkg) {
+	if pkg_cache(pkg).is_some() {
 	    log!(pkg, "Found pre-built binary");
 
+	    // remove from dependency list so that we wont build it
 	    remove_dep(pkg);
+
+	    pkg_install(pkg, true);
 	}
     }
 

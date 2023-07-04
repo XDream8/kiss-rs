@@ -201,7 +201,7 @@ pub fn pkg_source_git(package_name: &str, source: String) {
     }
 }
 
-pub fn pkg_source_tar(res: String) {
+pub fn pkg_source_tar(res: String, no_leading_dir: bool) {
     let file: File = File::open(res.clone()).expect("Failed to open tar file");
     let extension: Option<&str> = Path::new(res.as_str()).extension().and_then(|ext| ext.to_str());
     let mut decoder: Box<dyn Read> = match extension {
@@ -214,14 +214,18 @@ pub fn pkg_source_tar(res: String) {
 
     let mut archive: Archive<&mut Box<dyn std::io::Read>> = Archive::new(&mut decoder);
 
-
     // extract contents of tar directly to current dir
     for entry in archive.entries().unwrap() {
 	let mut entry = entry.unwrap();
 	let path = entry.path().unwrap();
 
+	let mut dest: String = String::new();
 	// remove first level directory from dest
-	let dest = path.components().skip(1).collect::<std::path::PathBuf>().display().to_string();
+	if no_leading_dir == false {
+	    dest = path.display().to_string();
+	} else {
+	    dest = path.components().skip(1).collect::<std::path::PathBuf>().display().to_string();
+	}
 	let dest_path = Path::new(".").join(dest);
 
 	if let Err(err) = entry.unpack(dest_path) {

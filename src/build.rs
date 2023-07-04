@@ -79,7 +79,7 @@ pub fn pkg_extract(pkg: &str) {
 	    copy_folder(Path::new(des.as_str()), &dest_path).expect("Failed to copy git source");
 	}
 	else if res.contains(".tar") {
-	    pkg_source_tar(res);
+	    pkg_source_tar(res, true);
 	}
 	else {
 	    let file_name = Path::new(res.as_str()).file_name().unwrap();

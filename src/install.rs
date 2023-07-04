@@ -17,6 +17,8 @@ use super::mkcd;
 use super::read_a_files_lines;
 use super::remove_chars_after_last;
 
+use super::tmp_file;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -48,6 +50,15 @@ pub fn pkg_cache(pkg: &str) -> Option<String> {
     None
 }
 
+pub fn pkg_conflicts(pkg: &str) {
+    log!(pkg, "Checking for package conflicts");
+
+    let (tmp_manifest_files, tmp_manifest_files_path) = tmp_file(pkg, "manifest-files").expect("Failed to create tmp_manifest_files");
+    let (tmp_found_conflicts, tmp_found_conflicts_path) = tmp_file(pkg, "found-conflicts").expect("Failed to create tmp_found_conflicts");
+
+
+
+}
 
 pub fn pkg_installable(pkg: &str, depends_file_path: String) {
     log!(pkg, "Checking if package installable");
@@ -102,20 +113,24 @@ pub fn pkg_install(package_tar: &str, force: bool) {
     }
 
     // cd into extract directory
-    mkcd(format!("{}/{}", *TAR_DIR, pkg).as_str());
+    let extract_dir: String = format!("{}/{}", *TAR_DIR, pkg);
+    mkcd(extract_dir.as_str());
 
     // extract to current dir
-    pkg_source_tar(tar_file);
+    pkg_source_tar(tar_file, false);
 
-    let manifest_path: PathBuf = Path::new(".").join(&*PKG_DB).join(pkg.as_str()).join("manifest");
+    let manifest_path: PathBuf = Path::new(format!("{}/{}", extract_dir, &*PKG_DB).replace("//", "/").as_str()).join(pkg.as_str()).join("manifest");
     if !manifest_path.exists() {
+	println!("{}, {}", extract_dir, manifest_path.display());
 	die!("", "Not a valid KISS package");
     }
 
-    if force != false || *KISS_FORCE != "1" {
-	pkg_manifest_validate(pkg.as_str(), ".", manifest_path);
+    if force == true || *KISS_FORCE != "1" {
+	pkg_manifest_validate(pkg.as_str(), extract_dir.as_str(), manifest_path);
 	pkg_installable(pkg.as_str(), format!("./{}/{}/depends", &*PKG_DB, pkg));
     }
+
+    pkg_conflicts(pkg.as_str());
 }
 
 pub fn install_action(c: &Context) {

@@ -73,9 +73,9 @@ pub fn pkg_manifest_validate(pkg: &str, path: &str, manifest_path: PathBuf) {
     let manifest_elements: Vec<String> = read_a_files_lines(&manifest_path).expect("Failed to read manifest file");
 
     for line in manifest_elements {
-	let element_path: PathBuf = Path::new(&path).join(line.clone());
+	let element: String = format!("{}/{}", path, line.clone());
 
-	if !element_path.exists() {
+	if !Path::new(element.as_str()).exists() {
 	    println!("{}", line);
 	    count += 1;
 	}

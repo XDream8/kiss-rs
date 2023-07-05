@@ -95,12 +95,12 @@ pub fn strip_files_recursive(directory: &Path) {
     let entries = fs::read_dir(directory).expect("Failed to read directory");
 
     let lib_and_exec_args: Vec<&str> = vec!("-s", "-R", ".comment", "-R", ".note");
-    let object_and_static_lib_args: &str = "-g -R .comment -R .note";
+    let object_and_static_lib_args: Vec<&str> = vec!("-g", "-R", ".comment", "-R", ".note");
 
     for entry in entries {
 	let entry = entry.unwrap();
 	let file_path = entry.path();
-	
+
 	if file_path.is_dir() {
 	    strip_files_recursive(&file_path);
 	}
@@ -108,10 +108,10 @@ pub fn strip_files_recursive(directory: &Path) {
 	    if let Some(extension) = file_path.extension() {
 		if let Some(extension_str) = extension.to_str() {
 		    if extension_str == "o" || extension_str == "a" {
-			let command = format!("strip {} {}", object_and_static_lib_args, file_path.to_string_lossy());
+			let command = format!("strip {} {}", object_and_static_lib_args.join(" "), file_path.to_string_lossy());
 			println!("{}", command);
 			let status = Command::new("strip")
-			    .arg(object_and_static_lib_args)
+			    .args(&object_and_static_lib_args)
 			    .arg(&file_path)
 			    .status().expect("Failed to strip file");
 			if !status.success() {

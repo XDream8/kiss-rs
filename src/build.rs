@@ -26,6 +26,7 @@ use super::{KISS_COMPRESS, KISS_STRIP};
 use super::{die, log};
 
 use super::set_env_variable_if_undefined;
+use super::read_sources;
 
 // std
 use std::path::Path;
@@ -47,27 +48,15 @@ pub fn pkg_extract(pkg: &str) {
     log!(pkg, "Extracting sources");
 
     let sources_file = format!("{}/sources", get_repo_dir());
-    let sources: Vec<String> = read_a_files_lines(sources_file).expect("Failed to read sources file");
 
-    for source in sources {
-	let mut source_clone = source.clone();
-	let mut dest = String::new();
+    let (sources, dests) = read_sources(sources_file.as_str()).expect("Failed to read sources file");
 
-	// consider user-given folder name
-	if source_clone.contains(" ") {
-	    let source_parts: Vec<String> = source_clone.split(" ").map(|l| l.to_owned()).collect();
-	    source_clone = source_parts.first().unwrap().to_owned();
-	    dest = source_parts
-		.last()
-		.unwrap()
-		.to_owned()
-		.trim_end_matches('/')
-		.to_owned();
-	}
+    for (source, dest) in sources.iter().zip(dests.unwrap().iter()) {
+	let source_clone = source.clone();
 
 	let (res, des) = pkg_source_resolve(source_clone, dest.clone(), false);
 
-	let source_dir: String = format!("{}/{}/{}", *MAK_DIR, pkg, dest.clone());
+	let source_dir: String = format!("{}/{}/{}", *MAK_DIR, pkg, dest);
 	// Create the source's directories if not null.
 	if !des.is_empty() {
 	    mkcd(source_dir.as_str());

@@ -356,3 +356,32 @@ pub fn tmp_file(name: &str, suffix: &str) -> Result<(File, PathBuf)> {
 
     Ok((File::create(&tmp_file_path)?, tmp_file_path))
 }
+
+pub fn read_sources(path: &str) -> Result<(Vec<String>, Option<Vec<String>>)> {
+    let sources: Vec<String> = read_a_files_lines(path)?;
+
+    let mut _source: Vec<String> = Vec::new();
+    let mut _dest: Vec<String> = Vec::new();
+
+    for source in sources {
+	let mut source = source.clone();
+	let mut dest = String::new();
+
+	// consider user-given folder name
+	if source.contains(" ") {
+            let source_parts: Vec<String> = source.split(" ").map(|l| l.to_owned()).collect();
+            source = source_parts.first().unwrap().to_owned();
+            dest = source_parts
+		.last()
+		.unwrap()
+		.to_owned()
+		.trim_end_matches('/')
+		.to_owned();
+	}
+
+	_source.push(source);
+	_dest.push(dest);
+    }
+
+    Ok((_source, Some(_dest)))
+}

@@ -5,6 +5,7 @@ use super::get_repo_dir;
 use super::get_repo_name;
 
 use super::read_a_files_lines;
+use super::read_sources;
 
 use super::{log, die};
 
@@ -62,28 +63,12 @@ pub fn pkg_checksum(package: &str) {
 
 pub fn pkg_checksum_gen(repo_dir: String) -> Vec<String> {
     let sources_path = format!("{}/sources", repo_dir);
-    let sources: Vec<String> = read_a_files_lines(sources_path.as_str()).expect("No sources file");
-
     let mut hashes: Vec<String> = Vec::new();
+    let (sources, dests) = read_sources(sources_path.as_str()).expect("Failed to read sources file");
 
-    for source in sources {
-	let mut source = source.clone();
-	let mut dest = String::new();
-
-	// consider user-given folder name
-	if source.contains(" ") {
-            let source_parts: Vec<String> = source.split(" ").map(|l| l.to_owned()).collect();
-            source = source_parts.first().unwrap().to_owned();
-            dest = source_parts
-		.last()
-		.unwrap()
-		.to_owned()
-		.trim_end_matches('/')
-		.to_owned();
-	}
-
+    for (source, dest) in sources.iter().zip(dests.unwrap().iter()) {
 	if !source.is_empty() && !source.starts_with("git+") {
-	    let (res, des) = pkg_source_resolve(source, dest, false);
+	    let (res, des) = pkg_source_resolve(source.clone(), dest.clone(), false);
 
 	    // if it is a local source res equals to des
 	    if res == des {
@@ -92,7 +77,7 @@ pub fn pkg_checksum_gen(repo_dir: String) -> Vec<String> {
 	}
     }
 
-    hashes
+	hashes
 }
 
 pub fn get_file_hash(file_path: &str) -> Result<String> {

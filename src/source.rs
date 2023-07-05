@@ -5,7 +5,7 @@ use seahorse::Context;
 // file libs
 use std::fs::File;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use ureq::Response;
 
@@ -15,7 +15,7 @@ use std::process::Command;
 use super::die;
 use super::log;
 
-use super::read_a_files_lines;
+use super::read_sources;
 use super::search::pkg_find_version;
 
 // global variables
@@ -140,25 +140,10 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 
     log!(&repo_name, "Reading sources");
 
-    let sources: Vec<String> = read_a_files_lines(sources_file).expect("Failed to read sources file");
+    let (sources, dests) = read_sources(sources_file.as_str()).expect("Failed to read sources file");
 
-    for source in sources {
-	let mut source_clone = source.clone();
-	let mut dest = String::new();
-
-	// consider user-given folder name
-	if source_clone.contains(" ") {
-	    let source_parts: Vec<String> = source_clone.split(" ").map(|l| l.to_owned()).collect();
-	    source_clone = source_parts.first().unwrap().to_owned();
-	    dest = source_parts
-		.last()
-		.unwrap()
-		.to_owned()
-		.trim_end_matches('/')
-		.to_owned();
-	}
-
-	let (res, des) = pkg_source_resolve(source_clone, dest, print);
+    for (source, dest) in sources.iter().zip(dests.unwrap().iter()) {
+	let (res, des) = pkg_source_resolve(source.clone(), dest.clone(), print);
 
 	mkcd(remove_chars_after_last(&des, '/'));
 
@@ -219,14 +204,13 @@ pub fn pkg_source_tar(res: String, no_leading_dir: bool) {
 	let mut entry = entry.unwrap();
 	let path = entry.path().unwrap();
 
-	let mut dest: String = String::new();
+	let mut dest_path: PathBuf = Path::new(".").to_path_buf();
 	// remove first level directory from dest
 	if no_leading_dir == false {
-	    dest = path.display().to_string();
+	    dest_path = dest_path.join(path);
 	} else {
-	    dest = path.components().skip(1).collect::<std::path::PathBuf>().display().to_string();
+	    dest_path = dest_path.join(path.components().skip(1).collect::<std::path::PathBuf>().display().to_string());
 	}
-	let dest_path = Path::new(".").join(dest);
 
 	if let Err(err) = entry.unpack(dest_path) {
 	    eprintln!("Failed to extract file: {}", err);

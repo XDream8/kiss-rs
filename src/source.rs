@@ -150,7 +150,7 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 	if res != des {
 	    if !skip_git && res.starts_with("git+") {
 		// place holder
-		pkg_source_git(&repo_name, res.as_str()).expect("Failed to fetch contents of repository");
+		pkg_source_git(&repo_name, res.as_str(), des.as_str()).expect("Failed to fetch contents of repository");
 	    } else if !res.starts_with("git+") {
 		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die!("Failed to download file: ", format!("{err}").as_str()));
 	    }
@@ -160,8 +160,8 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 
 // Experimental Function to clone git repos
 // https://github.com/rust-lang/git2-rs/blob/master/examples/fetch.rs
-pub fn pkg_source_git(package_name: &str, source: &str) -> Result<(), git2::Error> {
-    let repo = Repository::open(".")?;
+pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(), git2::Error> {
+    let repo = Repository::init(des)?;
     let remote: &str = match source {
 	_ if !source.is_empty() => source.split("git+").last().unwrap(),
 	_ => "origin",
@@ -219,29 +219,31 @@ pub fn pkg_source_git(package_name: &str, source: &str) -> Result<(), git2::Erro
     // progress.
     let mut fo = FetchOptions::new();
     fo.remote_callbacks(cb);
+    fo.prune(git2::FetchPrune::On);
+    fo.update_fetchhead(true);
     remote.download(&[] as &[&str], Some(&mut fo))?;
 
     {
-        // If there are local objects (we got a thin pack), then tell the user
-        // how many objects we saved from having to cross the network.
-        let stats = remote.stats();
-        if stats.local_objects() > 0 {
-            println!(
-                "\rReceived {}/{} objects in {} bytes (used {} local \
-                 objects)",
-                stats.indexed_objects(),
-                stats.total_objects(),
-                stats.received_bytes(),
-                stats.local_objects()
-            );
-        } else {
-            println!(
-                "\rReceived {}/{} objects in {} bytes",
-                stats.indexed_objects(),
-                stats.total_objects(),
-                stats.received_bytes()
-            );
-        }
+	// If there are local objects (we got a thin pack), then tell the user
+	// how many objects we saved from having to cross the network.
+	let stats = remote.stats();
+	if stats.local_objects() > 0 {
+	    println!(
+		"\rReceived {}/{} objects in {} bytes (used {} local \
+		 objects)",
+		stats.indexed_objects(),
+		stats.total_objects(),
+		stats.received_bytes(),
+		stats.local_objects()
+	    );
+	} else {
+	    println!(
+		"\rReceived {}/{} objects in {} bytes",
+		stats.indexed_objects(),
+		stats.total_objects(),
+		stats.received_bytes()
+	    );
+	}
     }
 
     // Disconnect the underlying connection to prevent from idling.
@@ -252,6 +254,12 @@ pub fn pkg_source_git(package_name: &str, source: &str) -> Result<(), git2::Erro
     // which can happen e.g. when the branches have been changed but all the
     // needed objects are available locally.
     remote.update_tips(None, true, AutotagOption::Unspecified, None)?;
+
+    // checkout fetched content
+    let checkout_repo = Repository::open(des)?;
+    let reference = checkout_repo.find_reference("FETCH_HEAD")?;
+    let commit = reference.peel_to_commit()?;
+    checkout_repo.checkout_tree(commit.as_object(), None)?;
 
     Ok(())
 }

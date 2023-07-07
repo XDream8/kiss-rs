@@ -1,11 +1,14 @@
 #!/bin/sh -e
 
 current=$(date +%s.%N)
+args="$*"
+command="${args##*"$1"}"
 
+n="$1"
 i=0
-while [ ! $i -eq 1000 ]; do
-	$@ 1>/dev/null 2>&1
-	i=$((i + 1))
+while [ ! $i -eq "$n" ]; do
+    $command 1>/dev/null 2>&1
+    i=$((i + 1))
 done
 
 done=$(date +%s.%N)

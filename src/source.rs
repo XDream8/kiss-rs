@@ -259,7 +259,11 @@ pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(),
     let checkout_repo = Repository::open(des)?;
     let reference = checkout_repo.find_reference("FETCH_HEAD")?;
     let commit = reference.peel_to_commit()?;
-    checkout_repo.checkout_tree(commit.as_object(), None)?;
+    // force checkout
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.force();
+
+    checkout_repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder))?;
 
     Ok(())
 }

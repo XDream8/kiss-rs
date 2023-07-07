@@ -1,5 +1,4 @@
 use super::PKG_DB;
-use super::PKG_DIR;
 
 use super::read_a_dir_and_sort;
 use super::read_a_files_lines;
@@ -12,7 +11,7 @@ use std::path::{Path, PathBuf};
 // logging
 use super::{log, die};
 
-pub fn pkg_manifest(pkg: &str) {
+pub fn pkg_manifest(pkg: &str, dir: &str) {
     log!(pkg, "Generating manifest");
 
     let (mut tmp_file, tmp_file_path) = tmp_file(pkg, "manifest").expect("Failed to create tmp_file");
@@ -20,18 +19,22 @@ pub fn pkg_manifest(pkg: &str) {
     // Create a list of all files and directories. Append '/' to the end of
     // directories so they can be easily filtered out later. Also filter out
     // all libtool .la files and charset.alias.
-    let pkg_dir = format!("{}/{}", *PKG_DIR, pkg);
+    let pkg_dir = format!("{}/{}", dir, pkg);
     // this will be added to manifest
-    let pkg_manifest_pathbuf = PathBuf::from(format!("{}/{package_name}/{}/{package_name}/manifest", *PKG_DIR, PKG_DB, package_name = pkg).as_str());
+    let pkg_manifest_pathbuf = PathBuf::from(format!("{}/{package_name}/{}/{package_name}/manifest", dir, PKG_DB, package_name = pkg).as_str());
     // prefix that will be removed from manifest entries
     let prefix: &str= pkg_dir.as_str();
+
+    // remove manifest file if it already exists
+    if pkg_manifest_pathbuf.exists() {
+	std::fs::remove_file(pkg_manifest_pathbuf.clone()).expect("Failed to remove already existing manifest file");
+    }
 
     // remove prefix
     let mut manifest: Vec<PathBuf> = std::iter::once(pkg_manifest_pathbuf.to_path_buf())
 	.chain(read_a_dir_and_sort(pkg_dir.as_str(), true))
 	.filter_map(|path| {
-	    // in case if there is a "//" in path
-	    let path_str = path.to_string_lossy().replace("//", "/");
+	    let path_str = path.to_string_lossy().to_string();
 	    let modified_path = PathBuf::from(&path_str);
 
 	    if path_str.starts_with(prefix) {
@@ -62,7 +65,7 @@ pub fn pkg_manifest(pkg: &str) {
 
     // copy manifest file to actual dest
     std::fs::copy(tmp_file_path, pkg_manifest_pathbuf)
-	.expect("Failed to move tmp_file");
+	.expect("Failed to copy tmp_file to actual manifest path");
 }
 
 pub fn pkg_manifest_validate(pkg: &str, path: &str, manifest_path: PathBuf) {

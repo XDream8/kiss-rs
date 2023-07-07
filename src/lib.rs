@@ -37,9 +37,9 @@ macro_rules! log {
 
 	let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
 
-	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow))).unwrap_or_else(|_| panic!("Failed to set color"));
+	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
 	write!(&mut stdout, "-> ").unwrap();
-	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
+	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Blue)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
 	write!(&mut stdout, "{} ", $m1).unwrap();
 	stdout.reset().unwrap_or_else(|_| panic!("Failed to set color"));
 	writeln!(&mut stdout, "{}", $m2).unwrap();
@@ -57,9 +57,9 @@ macro_rules! die {
 
 	let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
 
-	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow))).unwrap_or_else(|_| panic!("Failed to set color"));
+	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
 	write!(&mut stdout, "ERROR ").unwrap();
-	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Cyan)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
+	stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Blue)).set_bold(true)).unwrap_or_else(|_| panic!("Failed to set color"));
 	write!(&mut stdout, "{} ", $m1).unwrap();
 	stdout.reset().unwrap_or_else(|_| panic!("Failed to set color"));
 	writeln!(&mut stdout, "{}", $m2).unwrap();
@@ -87,12 +87,13 @@ pub static REPO_NAME: Lazy<Mutex<String>> = Lazy::new(|| {
     Mutex::new(result)
 });
 
-pub static PKG_DB: &'static str = "/var/db/kiss/installed";
+pub static CHO_DB: &'static str = "var/db/kiss/choices";
+pub static PKG_DB: &'static str = "var/db/kiss/installed";
 pub static SYS_DB: Lazy<String> = Lazy::new(|| {
     if KISS_ROOT.is_empty() {
 	(*PKG_DB).to_string()
     } else {
-	format!("{}/{}", *KISS_ROOT, PKG_DB)
+	format!("{}/{}", *KISS_ROOT, PKG_DB).replace("//", "/")
     }
 });
 
@@ -115,9 +116,10 @@ pub static TMP_DIR: Lazy<String> = Lazy::new(|| format!("{}/tmp", *PROC));
 pub static KISS_PID: Lazy<u32> = Lazy::new(|| std::process::id());
 pub static KISS_TMP: Lazy<String> =
     Lazy::new(|| get_env_variable("KISS_TMP", format!("{}/kiss", *CACHE)));
+pub static KISS_CHOICE: Lazy<String> = Lazy::new(|| get_env_variable("KISS_CHOICE", "1".to_owned()));
 pub static KISS_DEBUG: Lazy<String> = Lazy::new(|| get_env_variable("KISS_DEBUG", "0".to_owned()));
 pub static KISS_LVL: Lazy<String> = Lazy::new(|| get_env_variable("KISS_LVL", "1".to_owned()));
-pub static KISS_ROOT: Lazy<String> = Lazy::new(|| get_env_variable("KISS_ROOT", String::new()));
+pub static KISS_ROOT: Lazy<String> = Lazy::new(|| get_env_variable("KISS_ROOT", "/".to_owned()));
 
 pub static KISS_COMPRESS: Lazy<String> = Lazy::new(|| get_env_variable("KISS_COMPRESS", "gz".to_owned()));
 pub static KISS_FORCE: Lazy<String> = Lazy::new(|| get_env_variable("KISS_FORCE", "0".to_owned()));
@@ -353,8 +355,9 @@ pub fn read_a_dir_and_sort(path: &str, recursive: bool) -> Vec<PathBuf> {
 pub fn tmp_file(name: &str, suffix: &str) -> Result<(File, PathBuf)> {
     let tmp_file_name: String = format!("{}-{}", name, suffix);
     let tmp_file_path = Path::new(&*TMP_DIR).join(tmp_file_name);
+    let tmp_file: File = File::create(&tmp_file_path)?;
 
-    Ok((File::create(&tmp_file_path)?, tmp_file_path))
+    Ok((tmp_file, tmp_file_path))
 }
 
 pub fn read_sources(path: &str) -> Result<(Vec<String>, Option<Vec<String>>)> {
@@ -384,4 +387,22 @@ pub fn read_sources(path: &str) -> Result<(Vec<String>, Option<Vec<String>>)> {
     }
 
     Ok((_source, Some(_dest)))
+}
+
+fn resolve_path(path: &str) -> Option<PathBuf> {
+    let rpath = Path::new(&*KISS_ROOT).join(path.trim_start_matches('/'));
+
+    let parent = if let Some(parent) = rpath.parent() {
+        parent
+    } else {
+        return None;
+    };
+
+    let absolute_path = if parent.is_absolute() {
+        parent.to_path_buf().join(rpath.file_name().unwrap_or_default())
+    } else {
+        Path::new(&*KISS_ROOT).join(parent).join(rpath.file_name().unwrap_or_default())
+    };
+
+    Some(absolute_path)
 }

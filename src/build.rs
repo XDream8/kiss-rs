@@ -385,7 +385,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 	}
 
 	pkg_build(package);
-	pkg_manifest(package);
+	pkg_manifest(package, &*PKG_DIR);
 	pkg_strip(package);
 
 	pkg_tar(package);

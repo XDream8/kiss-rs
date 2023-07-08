@@ -85,6 +85,6 @@ pub fn pkg_manifest_validate(pkg: &str, path: &str, manifest_path: PathBuf) {
     }
 
     if count != 0 {
-	die!(pkg, format!("manifest contains {} non-existant files", count));
+	die!(pkg, "manifest contains {} non-existant files", count);
     }
 }

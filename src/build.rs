@@ -115,7 +115,7 @@ pub fn strip_files_recursive(directory: &Path) {
 			    .arg(&file_path)
 			    .status().expect("Failed to strip file");
 			if !status.success() {
-			    die!(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+			    die!(get_repo_name().as_str(), "failed to strip file: {}", file_path.display())
 			}
 		    }
 		    else if extension_str.contains("lib") {
@@ -126,7 +126,7 @@ pub fn strip_files_recursive(directory: &Path) {
 			    .arg(&file_path)
 			    .status().expect("Failed to strip file");
 			if !status.success() {
-			    die!(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+			    die!(get_repo_name().as_str(), "failed to strip file: {}", file_path.display())
 			}
 		    }
 		}
@@ -148,7 +148,7 @@ pub fn strip_files_recursive(directory: &Path) {
 			.arg(&file_path)
 			.status().expect("Failed to strip file");
 		    if !status.success() {
-			die!(get_repo_name().as_str(), format!("failed to strip file: {}", file_path.display()).as_str())
+			die!(get_repo_name().as_str(), "failed to strip file: {}", file_path.display())
 		    }
 		}
 	    }
@@ -329,7 +329,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
     if !deps.is_empty() {
 	implicit_text = format!(", implicit: {}", deps.join(" "));
     }
-    log!("Building:", format!("explicit: {}{}", explicit.join(" "), implicit_text).as_str());
+    log!("Building:", "explicit: {}{}", explicit.join(" "), implicit_text);
 
     if !deps.is_empty() {
 	// Ask for confirmation if extra packages need to be built.
@@ -374,7 +374,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 	// print status
 	build_cur += 1;
 	let build_status: String = format!("Building package ({}/{})", build_cur, package_count);
-	log!(package, build_status.as_str());
+	log!(package, "{}", build_status);
 
 	pkg_find_version(package, false);
 
@@ -386,10 +386,10 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 
 	pkg_build(package);
 	pkg_manifest(package, &*PKG_DIR);
-	pkg_strip(package);
+	     pkg_strip(package);
 
-	pkg_tar(package);
-    }
+	     pkg_tar(package);
+	 }
 }
 
 pub fn pkg_build(pkg: &str) {

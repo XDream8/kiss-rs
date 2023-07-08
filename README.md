@@ -15,6 +15,6 @@ kiss-rs is currently **WIP**.
 ## TODO
 - [ ] pkg_conflicts: enable alternatives automatically if it is safe to do so.
 - [ ] pkg_conflicts: fix bugs(like Found conflict: /var/db/kiss/installed/rust-analyzer/version)
-- [ ] log!/die!: improve macros
+- [X] log!/die!: improve macros
 - [ ] pkg_depends: add circular dependency checks and fix bugs(sometimes it does not detect some deps)
 - [ ] replace all .expect(s) with log!/die! macros(i am not sure about this)

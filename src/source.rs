@@ -113,8 +113,8 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
     if _res.is_empty() || _des.is_empty() {
         die!(
             &package_name,
-            format!("No local file '{}'", source).as_str()
-        );
+            "No local file '{}'", source
+	);
 	// local
     } else if print && _res == _des {
         println!("found {}", _res);
@@ -152,7 +152,7 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 		// place holder
 		pkg_source_git(&repo_name, res.as_str(), des.as_str()).expect("Failed to fetch contents of repository");
 	    } else if !res.starts_with("git+") {
-		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die!("Failed to download file: ", format!("{err}").as_str()));
+		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die!("Failed to download file:", "{}", err));
 	    }
 	}
     }
@@ -168,7 +168,7 @@ pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(),
     };
 
     // Figure out whether it's a named remote or a URL
-    log!(package_name, format!("Checking out {}", remote));
+    log!(package_name, "Checking out {}", remote);
     let mut cb = RemoteCallbacks::new();
     let mut remote = repo
         .find_remote(remote)
@@ -310,7 +310,7 @@ pub fn pkg_source_url(
 
     log!(
         &repo_name,
-        format!("Downloading {}", download_source).as_str()
+        "Downloading {}", download_source
     );
 
     let response: Response = HTTP_CLIENT.get(download_source).call()?;

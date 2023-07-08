@@ -179,7 +179,7 @@ pub fn pkg_installable(pkg: &str, depends_file_path: String) {
     }
 
     if count != 0 {
-	die!(pkg, format!("Package not installable, missing {} package(s)", count));
+	die!(pkg, "Package not installable, missing {} package(s)", count);
     }
 }
 

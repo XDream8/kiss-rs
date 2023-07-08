@@ -83,7 +83,8 @@ pub fn pkg_conflicts(pkg: &str, manifest_file_path: &PathBuf) -> Result<(), std:
     let mut safe = false;
 
     for sys_manifest_path in sys_manifest_files {
-	if sys_manifest_path.to_string_lossy().to_string().starts_with(&*PKG_DB) {
+	// do not check against the package manifest, if package wanted to be installed is already installed
+	if sys_manifest_path.to_string_lossy().to_string().contains(&*PKG_DB) {
 	    continue
 	};
 

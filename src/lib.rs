@@ -59,7 +59,7 @@ macro_rules! die {
             use std::process::exit;
             use super::pkg_clean;
 
-            let mut stdout: StandardStream = StandardStream::stdout(ColorChoice::Auto);
+            let mut stdout: StandardStream = StandardStream::stderr(ColorChoice::Auto);
 
             stdout.set_color(ColorSpec::new().set_fg(Some(termcolor::Color::Yellow)).set_bold(true))
                 .unwrap_or_else(|_| panic!("Failed to set color"));

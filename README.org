@@ -14,7 +14,7 @@ kiss-rs is currently *WIP*.
 - [X] list
 - [X] search
 
-** TODO
+** TODO Fix Issues
 :PROPERTIES:
 :CUSTOM_ID: todo
 :END:

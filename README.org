@@ -26,8 +26,7 @@ kiss-rs is currently *WIP*.
 - [X] log!/die!: improve macros
 - [-] pkg_depends:
   - [ ] add circular dependency checks
-  - [X] fix bugs(sometimes
-  it does not detect some deps)
+  - [X] fix bugs(sometimes it does not detect some deps)
 - [ ] replace all .expect(s) with log!/die! macros(i am not sure about
   this)
 - [ ] pkg_source_tar:

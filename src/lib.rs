@@ -48,8 +48,8 @@ pub static REPO_NAME: Lazy<Mutex<String>> = Lazy::new(|| {
     Mutex::new(result)
 });
 
-pub static CHO_DB: &'static str = "var/db/kiss/choices";
-pub static PKG_DB: &'static str = "var/db/kiss/installed";
+pub static CHO_DB: &str = "var/db/kiss/choices";
+pub static PKG_DB: &str = "var/db/kiss/installed";
 pub static SYS_DB: Lazy<String> = Lazy::new(|| {
     if KISS_ROOT.is_empty() {
 	(*PKG_DB).to_string()
@@ -74,7 +74,7 @@ pub static PKG_DIR: Lazy<String> = Lazy::new(|| format!("{}/pkg", *PROC));
 pub static TAR_DIR: Lazy<String> = Lazy::new(|| format!("{}/extract", *PROC));
 pub static TMP_DIR: Lazy<String> = Lazy::new(|| format!("{}/tmp", *PROC));
 
-pub static KISS_PID: Lazy<u32> = Lazy::new(|| std::process::id());
+pub static KISS_PID: Lazy<u32> = Lazy::new(std::process::id);
 pub static KISS_TMP: Lazy<String> =
     Lazy::new(|| get_env_variable("KISS_TMP", format!("{}/kiss", *CACHE)));
 pub static KISS_CHOICE: Lazy<String> = Lazy::new(|| get_env_variable("KISS_CHOICE", "1".to_owned()));
@@ -91,7 +91,7 @@ pub static KISS_PATH: Lazy<Vec<String>> = Lazy::new(|| {
 
     let mut path: Vec<String> = Vec::new();
 
-    for repo in env_var.split(":").into_iter() {
+    for repo in env_var.split(':') {
         path.push(repo.to_owned());
     }
 
@@ -293,10 +293,10 @@ pub fn read_a_dir_and_sort(path: &str, recursive: bool) -> Vec<PathBuf> {
 	    let path = entry.path();
 
 	    if path.is_file() {
-		let file_name = path.file_name().unwrap().to_string_lossy().to_owned();
-		if file_name.ends_with(".la") || file_name == "charset.alias" {
-		    continue;
-		}
+		    let file_name = path.file_name().unwrap().to_string_lossy().into_owned();
+		    if file_name.ends_with(".la") || file_name == "charset.alias" {
+		        continue;
+		    }
 	    }
 
 	    filtered_entries.push(path.clone());
@@ -310,7 +310,7 @@ pub fn read_a_dir_and_sort(path: &str, recursive: bool) -> Vec<PathBuf> {
 
     // sort
     filtered_entries.sort();
-    return filtered_entries;
+    filtered_entries
 }
 
 pub fn tmp_file(name: &str, suffix: &str) -> Result<(File, PathBuf)> {
@@ -332,8 +332,8 @@ pub fn read_sources(path: &str) -> Result<(Vec<String>, Option<Vec<String>>)> {
 	let mut dest = String::new();
 
 	// consider user-given folder name
-	if source.contains(" ") {
-            let source_parts: Vec<String> = source.split(" ").map(|l| l.to_owned()).collect();
+	if source.contains(' ') {
+            let source_parts: Vec<String> = source.split(' ').map(|l| l.to_owned()).collect();
             source = source_parts.first().unwrap().to_owned();
             dest = source_parts
 		.last()
@@ -353,11 +353,7 @@ pub fn read_sources(path: &str) -> Result<(Vec<String>, Option<Vec<String>>)> {
 fn resolve_path(path: &str) -> Option<PathBuf> {
     let rpath = Path::new(&*KISS_ROOT).join(path.trim_start_matches('/'));
 
-    let parent = if let Some(parent) = rpath.parent() {
-        parent
-    } else {
-        return None;
-    };
+    let parent = rpath.parent()?;
 
     let absolute_path = if parent.is_absolute() {
         parent.to_path_buf().join(rpath.file_name().unwrap_or_default())

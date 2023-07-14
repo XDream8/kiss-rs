@@ -25,19 +25,19 @@ pub fn pkg_find_version(name: &str, print: bool) -> String {
     if version_path.exists() {
         let mut version: Vec<String> = read_a_files_lines(
 	    &version_path,
-	).expect(format!("Failed to read version file ({})", version_path.display()).as_str());
+	).unwrap_or_else(|_| panic!("Failed to read version file ({})", version_path.display()));
 
 	// part version and release
 	version = version
 	    .first()
 	    .unwrap()
 	    .to_owned()
-	    .split(" ")
+	    .split(' ')
 	    .map(|e| e.to_owned())
 	    .collect();
 
         // first element is version
-        let ver_pre = version.clone().into_iter().nth(0).unwrap();
+        let ver_pre = version.clone().into_iter().next().unwrap();
         // second element is release
         let rel_pre = version.clone().into_iter().nth(1).unwrap();
 
@@ -70,7 +70,7 @@ pub fn pkg_find(name: &str, print: bool) -> String {
 		println!("{}", package.display());
 	    }
 	    // find the first package that matches in KISS_PATH and break the loop
-	    else if !print && name.to_owned() == package_name {
+	    else if !print && name == package_name {
 		wanted_package = format!("{}", package.display());
 		break;
 	    }
@@ -103,7 +103,7 @@ pub fn pkg_find(name: &str, print: bool) -> String {
 }
 
 pub fn search_action(c: &Context) {
-    let search: Vec<&str> = get_args(&c);
+    let search: Vec<&str> = get_args(c);
 
     // search package
     for package in search {

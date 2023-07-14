@@ -65,7 +65,7 @@ pub fn pkg_extract(pkg: &str) {
 	let dest_path = Path::new(source_dir.as_str());
 
 	if res.contains("git+") {
-	    copy_folder(Path::new(des.as_str()), &dest_path).expect("Failed to copy git source");
+	    copy_folder(Path::new(des.as_str()), dest_path).expect("Failed to copy git source");
 	}
 	else if res.contains(".tar") {
 	    pkg_source_tar(res, true);
@@ -133,24 +133,24 @@ pub fn strip_files_recursive(directory: &Path) {
 	    }
 	    // Executable
 	    else {
-		// to detect if it is a elf executable
-		let mut header = [0u8; 4];
-		if let Err(_) = File::open(file_path.clone()).expect("Failed to open file").read_exact(&mut header) {
-		    die!(get_repo_name().as_str(), "Failed to read file header");
-		}
-
-		if header == [0x7f, 0x45, 0x4c, 0x46] {
-		    // assume it is a executable
-		    let command = format!("strip {} {}", lib_and_exec_args.join(" "), file_path.to_string_lossy());
-		    println!("{}", command);
-		    let status = Command::new("strip")
-			.args(&lib_and_exec_args)
-			.arg(&file_path)
-			.status().expect("Failed to strip file");
-		    if !status.success() {
-			die!(get_repo_name().as_str(), "failed to strip file: {}", file_path.display())
+		    // to detect if it is a elf executable
+		    let mut header = [0u8; 4];
+		    if File::open(file_path.clone()).expect("Failed to open file").read_exact(&mut header).is_err() {
+		        die!(get_repo_name().as_str(), "Failed to read file header");
 		    }
-		}
+
+		    if header == [0x7f, 0x45, 0x4c, 0x46] {
+		        // assume it is a executable
+		        let command = format!("strip {} {}", lib_and_exec_args.join(" "), file_path.to_string_lossy());
+		        println!("{}", command);
+		        let status = Command::new("strip")
+			        .args(&lib_and_exec_args)
+			        .arg(&file_path)
+			        .status().expect("Failed to strip file");
+		        if !status.success() {
+			        die!(get_repo_name().as_str(), "failed to strip file: {}", file_path.display())
+		        }
+		    }
 	    }
 	}
     }
@@ -240,7 +240,7 @@ pub fn pkg_tar(pkg: &str) {
 
     let pkg_dir = format!("{}/{}/", *PKG_DIR, pkg);
 
-    create_tar_archive(tar_file.as_str(), pkg_dir.as_str(), &*KISS_COMPRESS).expect("Failed to create tarball");
+    create_tar_archive(tar_file.as_str(), pkg_dir.as_str(), &KISS_COMPRESS).expect("Failed to create tarball");
 
     log!(pkg, "Successfully created tarball");
 }
@@ -259,11 +259,11 @@ pub fn pkg_depends(pkg: String, expl: bool, filter: bool, dep_type: String) {
     // Resolve all dependencies and generate an ordered list. The deepest
     // dependencies are listed first and then the parents in reverse order.
     if deps.contains(&pkg) {
-	return;
+	    return;
     }
 
-    if filter == false || explicit.contains(&pkg) || Path::new(&*SYS_DB).join(pkg.clone()).exists() {
-	return;
+    if !filter || explicit.contains(&pkg) || !expl && Path::new(&*SYS_DB).join(pkg.clone()).exists() {
+        return;
     }
 
     if !pac.is_empty() || Path::new(&repo_dir).join("depends").exists() {
@@ -281,22 +281,18 @@ pub fn pkg_depends(pkg: String, expl: bool, filter: bool, dep_type: String) {
 		dep = remove_chars_after_last(&dependency, ' ').trim_end().to_owned();
 	    }
 
+        println!("{}", dep.clone());
+
 	    pkg_depends(dep.clone(), false, filter, dependency_type);
 	}
     } else {
 	return;
     }
 
-    // TODO: add pkg_cache to condition
-    if expl == false || dep_type == "make" {
-	add_dep(pkg);
+    // add to dependency vec
+    if !expl || dep_type == "make" && !pkg_cache(pkg.as_str()).is_some() {
+	    add_dep(pkg);
     }
-
-    // # Add parent to dependencies list.
-    // if ! equ "$2" expl || { equ "$5" make && ! pkg_cache "$1"; }; then
-    //     deps="$deps $1"
-    // fi
-
 }
 
 pub fn pkg_build_all(packages: Vec<&str>) {
@@ -317,7 +313,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
     // If an explicit package is a dependency of another explicit package,
     // remove it from the explicit list.
     for package in get_explicit().iter() {
-	if deps.contains(&package) {
+	if deps.contains(package) {
 	    remove_explicit(package)
 	}
     }
@@ -385,7 +381,7 @@ pub fn pkg_build_all(packages: Vec<&str>) {
 	}
 
 	pkg_build(package);
-	pkg_manifest(package, &*PKG_DIR);
+	pkg_manifest(package, &PKG_DIR);
 	     pkg_strip(package);
 
 	     pkg_tar(package);
@@ -429,7 +425,7 @@ pub fn pkg_build(pkg: &str) {
 }
 
 pub fn build_action(c: &Context) {
-    let packages: Vec<&str> = get_args(&c);
+    let packages: Vec<&str> = get_args(c);
 
     pkg_build_all(packages);
 }

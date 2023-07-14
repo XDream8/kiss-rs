@@ -110,7 +110,7 @@ pub fn pkg_verify(pkg: &str, repo_dir: String) {
 }
 
 pub fn checksum_action(c: &Context) {
-    let packages: Vec<&str> = get_args(&c);
+    let packages: Vec<&str> = get_args(c);
 
     // search package
     if !packages.is_empty() {

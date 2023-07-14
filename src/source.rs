@@ -40,7 +40,7 @@ use zstd::stream::read::Decoder;
 pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String, String) {
     let repo_dir: String = get_repo_dir();
 
-    let source_parts: Vec<String> = source.split("/").map(|e| e.to_owned()).collect();
+    let source_parts: Vec<String> = source.split('/').map(|e| e.to_owned()).collect();
 
     let package_name: String = get_repo_name();
 
@@ -91,8 +91,8 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
             (source.clone(), source)
         }
         // Local absolute dir
-        _ if Path::new(format!("/{}", source.trim_end_matches("/")).as_str()).exists() => {
-            let source = format!("/{}/.", source.trim_end_matches("/"));
+        _ if Path::new(format!("/{}", source.trim_end_matches('/')).as_str()).exists() => {
+            let source = format!("/{}/.", source.trim_end_matches('/'));
             (source.clone(), source)
         }
         // Local relative file
@@ -103,8 +103,8 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
             (source.clone(), source)
         }
         // Local absolute file
-        _ if Path::new(format!("/{}", source.trim_end_matches("/")).as_str()).exists() => {
-            let source = format!("/{}", source.trim_end_matches("/"));
+        _ if Path::new(format!("/{}", source.trim_end_matches('/')).as_str()).exists() => {
+            let source = format!("/{}", source.trim_end_matches('/'));
             (source.clone(), source)
         }
         _ => (String::new(), String::new()),
@@ -288,7 +288,7 @@ pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(),
 
 	let mut dest_path: PathBuf = Path::new(".").to_path_buf();
 	// remove first level directory from dest
-	if no_leading_dir == false {
+	if !no_leading_dir {
 	    dest_path = dest_path.join(path);
 	} else {
 	    dest_path = dest_path.join(path.components().skip(1).collect::<std::path::PathBuf>().display().to_string());
@@ -324,7 +324,7 @@ pub fn pkg_source_url(
 
     // get file_name from download_dest variable
     let file_name: String = format!("{}", download_dest.display())
-	.split("/")
+	.split('/')
 	.last()
 	.unwrap()
 	.to_owned();
@@ -378,7 +378,7 @@ pub fn convert_bytes(bytes: u64) -> String {
 }
 
 pub fn download_action(c: &Context) {
-    let packages: Vec<&str> = get_args(&c);
+    let packages: Vec<&str> = get_args(c);
 
     if !packages.is_empty() {
         for package in packages {

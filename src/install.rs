@@ -73,7 +73,7 @@ pub fn pkg_conflicts(pkg: &str, manifest_file_path: &PathBuf) -> Result<(), std:
     }
 
     // only get manifest files
-    let sys_manifest_files: Vec<PathBuf> = read_a_dir_and_sort( &*SYS_DB, true)
+    let sys_manifest_files: Vec<PathBuf> = read_a_dir_and_sort( &SYS_DB, true)
 	.iter()
 	.filter(|file| file.file_name().unwrap().to_str() == Some("manifest"))
 	.map(|name| name.to_path_buf())
@@ -84,22 +84,20 @@ pub fn pkg_conflicts(pkg: &str, manifest_file_path: &PathBuf) -> Result<(), std:
 
     for sys_manifest_path in sys_manifest_files {
 	// do not check against the package manifest, if package wanted to be installed is already installed
-	if sys_manifest_path.to_string_lossy().to_string().contains(&*PKG_DB) {
+	if sys_manifest_path.to_string_lossy().to_string().contains(PKG_DB) {
 	    continue
 	};
 
 	let sys_manifest_file = fs::File::open(sys_manifest_path).unwrap();
 	let sys_manifest_reader = BufReader::new(sys_manifest_file);
 
-	for line in sys_manifest_reader.lines() {
-	    if let Ok(file) = line {
-		let found = resolved_paths.iter().any(|path| path == &file);
-		if found {
-		    conflicts_found = true;
-		    conflicts.push(file);
-		    break;
-		}
-	    }
+	    for line in sys_manifest_reader.lines().flatten() {
+		    let found = resolved_paths.iter().any(|path| path == &line);
+		    if found {
+		        conflicts_found = true;
+		        conflicts.push(line);
+		        break;
+	        }
 	}
 
 	if conflicts_found {
@@ -116,7 +114,7 @@ pub fn pkg_conflicts(pkg: &str, manifest_file_path: &PathBuf) -> Result<(), std:
 
     if *KISS_CHOICE == "1" && safe && conflicts_found {
         // Handle conflicts and create choices
-	let choice_directory_path: String = format!("{}/{}/{}", &*TAR_DIR, pkg, &*CHO_DB);
+	let choice_directory_path: String = format!("{}/{}/{}", &*TAR_DIR, pkg, CHO_DB);
 	let choice_directory = Path::new(choice_directory_path.as_str());
         // Create the "choices" directory inside of the tarball.
 	// This directory will store the conflicting file.
@@ -127,7 +125,7 @@ pub fn pkg_conflicts(pkg: &str, manifest_file_path: &PathBuf) -> Result<(), std:
 	for conflict in conflicts {
 	    println!("Found conflict: {}", conflict);
 
-	    let new_file_name: String = format!("{}>{}", pkg, conflict.trim_start_matches('/').replace("/", ">"));
+	    let new_file_name: String = format!("{}>{}", pkg, conflict.trim_start_matches('/').replace('/', ">"));
 	    let choice_file_path: String = format!("{}/{}", choice_directory_path, new_file_name);
 	    let real_conflict_path: String = format!("{}/{}/{}", &*TAR_DIR, pkg, conflict);
 
@@ -139,7 +137,7 @@ pub fn pkg_conflicts(pkg: &str, manifest_file_path: &PathBuf) -> Result<(), std:
             log!(pkg, "Converted all conflicts to choices (kiss a)");
 	    // Rewrite the package's manifest to update its location
             // to its new spot (and name) in the choices directory.
-            pkg_manifest(pkg, &*TAR_DIR);
+            pkg_manifest(pkg, &TAR_DIR);
 	}
     } else if conflicts_found {
         println!("Package '{}' conflicts with another package !>", pkg);
@@ -192,7 +190,7 @@ pub fn pkg_install(package_tar: &str, force: bool) {
 
     if package_tar.contains(".tar.") {
 	// remove everything before the last ’/’ and everything after the ’@’ char
-	pkg = package_tar.rsplitn(2, '/').next().unwrap().split('@').next().unwrap().to_owned();
+	pkg = package_tar.rsplit('/').next().unwrap().split('@').next().unwrap().to_owned();
     } else {
 	if let Some(tarball) = pkg_cache(package_tar) {
 	    tar_file = tarball;
@@ -208,30 +206,71 @@ pub fn pkg_install(package_tar: &str, force: bool) {
     mkcd(extract_dir.as_str());
 
     // extract to current dir
-    pkg_source_tar(tar_file, false);
+    pkg_source_tar(tar_file.clone(), false);
 
-    let manifest_path: PathBuf = Path::new(format!("{}/{}", extract_dir, &*PKG_DB).replace("//", "/").as_str()).join(pkg.as_str()).join("manifest");
+    let manifest_path: PathBuf = Path::new(format!("{}/{}", extract_dir, PKG_DB).replace("//", "/").as_str()).join(pkg.as_str()).join("manifest");
     if !manifest_path.exists() {
 	println!("{}, {}", extract_dir, manifest_path.display());
 	die!("", "Not a valid KISS package");
     }
 
-    if force != true || *KISS_FORCE != "1" {
+    if !force || *KISS_FORCE != "1" {
 	pkg_manifest_validate(pkg.as_str(), extract_dir.as_str(), manifest_path.clone());
-	pkg_installable(pkg.as_str(), format!("./{}/{}/depends", &*PKG_DB, pkg));
+	pkg_installable(pkg.as_str(), format!("./{}/{}/depends", PKG_DB, pkg));
     }
 
     pkg_conflicts(pkg.as_str(), &manifest_path).expect("Failed to check conflicts");
+
+    log!(pkg, "Installing package ({})", tar_file.split('/').last().expect("Failed to get tar_file name"));
+
+    // If the package is already installed (and this is an upgrade) make a
+    // backup of the manifest and etcsums files.
+    // let manifest_copy = PathBuf::from(format!("{}/{}", &*SYS_DB, pkg)).join("manifest-copy");
+    // let etcsums_copy = PathBuf::from(format!("{}/{}", &*SYS_DB, pkg)).join("etcsums-copy");
+    // let manifest_diff = PathBuf::from(format!("{}/{}", &*SYS_DB, pkg)).join("manifest-diff");
+
+    // Generate a list of files which exist in the currently installed manifest
+    // but not in the newer (to be installed) manifest.
+    // let tar_man = Path::new(&*PKG_DB).join(pkg).join("manifest");
+
+    // let tar_man_lines = BufReader::new(fs::File::open(&tar_man).expect("Failed to open manifest file"));
+    // let tmp_file_pre_pre_lines = BufReader::new(fs::File::open(&manifest_diff).expect("Failed to open manifest-diff file"));
+
+    // let grep_lines = tmp_file_pre_pre_lines
+    //     .lines()
+    //     .filter(|line| {
+    //         let line = line.as_ref().unwrap();
+    //         !tar_man_lines.lines().any(|tar_line| tar_line.as_ref().unwrap() == line)
+    //     });
+
+    // Reverse the manifest file so that we start shallow and go deeper as we
+    // iterate over each item. This is needed so that directories are created
+    // going down the tree.
+    // let tar_man_lines_rev: Vec<_> = tar_man_lines.lines().collect();
+    // let mut sort_lines_rev = tar_man_lines_rev.clone();
+    // sort_lines_rev.sort();
+
+    // let sort_lines = sort_lines_rev.into_iter().map(|line| line.unwrap());
+
+    // if pkg_install_files(Path::new("."), sort_lines, grep_lines).is_ok() &&
+    //     pkg_remove_files(tmp_file_pre_lines, tmp_file_pre_pre_lines).is_ok() &&
+    //     pkg_install_files(Path::new("."), sort_lines, grep_lines).is_ok()
+    // {
+    //     log(pkg, "Installed successfully");
+    // } else {
+    //     log!(pkg, "Failed to install package.");
+    //     die!(pkg, "Filesystem now dirty, manual repair needed.");
+    // }
 }
 
 pub fn install_action(c: &Context) {
-    let packages: Vec<&str> = get_args(&c);
+let packages: Vec<&str> = get_args(c);
 
-    if !packages.is_empty() {
-        for package in packages {
-            pkg_install(package, false);
-        }
-    } else {
-        pkg_install(get_repo_name().as_str(), false);
+if !packages.is_empty() {
+    for package in packages {
+        pkg_install(package, false);
     }
+} else {
+    pkg_install(get_repo_name().as_str(), false);
+}
 }

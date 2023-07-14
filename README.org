@@ -18,12 +18,15 @@ kiss-rs is currently *WIP*.
 :PROPERTIES:
 :CUSTOM_ID: todo
 :END:
-- [ ] pkg_conflicts: enable alternatives automatically if it is safe to
+- [-] pkg_conflicts:
+  - [ ] enable alternatives automatically if it is safe to
   do so.
-- [ ] pkg_conflicts: fix bugs(like Found conflict:
+  - [X] fix bugs(like Found conflict:
   /var/db/kiss/installed/rust-analyzer/version)
 - [X] log!/die!: improve macros
-- [ ] pkg_depends: add circular dependency checks and fix bugs(sometimes
+- [-] pkg_depends:
+  - [ ] add circular dependency checks
+  - [X] fix bugs(sometimes
   it does not detect some deps)
 - [ ] replace all .expect(s) with log!/die! macros(i am not sure about
   this)

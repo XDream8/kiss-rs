@@ -30,3 +30,5 @@ kiss-rs is currently *WIP*.
   it does not detect some deps)
 - [ ] replace all .expect(s) with log!/die! macros(i am not sure about
   this)
+- [ ] pkg_source_tar:
+  - [ ] fix bug: The process was killed by SIGSEGV: Segmentation fault

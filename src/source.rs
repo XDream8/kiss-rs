@@ -7,8 +7,8 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use ureq::Response;
 use git2::{AutotagOption, FetchOptions, RemoteCallbacks, Repository};
+use ureq::Response;
 
 // logging functions
 use super::die;
@@ -28,11 +28,11 @@ use super::remove_chars_after_last;
 use super::tmp_file;
 
 // decompress
+use bzip2::read::BzDecoder;
+use flate2::read::GzDecoder;
 use std::io::Read;
 use tar::Archive;
 use xz2::read::XzDecoder;
-use flate2::read::GzDecoder;
-use bzip2::read::BzDecoder;
 use zstd::stream::read::Decoder;
 
 // Given a line of input from the sources file, return an absolute
@@ -49,16 +49,16 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
 
     // both git and remote sources uses this dest
     let _dest = format!(
-	"{}/{}/{}{}",
-	*SRC_DIR,
-	package_name,
-	if !dest.is_empty() {
-	    format!("{}/", dest)
-	} else {
-	    dest
-	},
-	if !repo_name.is_empty() {
-	    if let Some(index) = repo_name.find('#') {
+        "{}/{}/{}{}",
+        *SRC_DIR,
+        package_name,
+        if !dest.is_empty() {
+            format!("{}/", dest)
+        } else {
+            dest
+        },
+        if !repo_name.is_empty() {
+            if let Some(index) = repo_name.find('#') {
                 repo_name.truncate(index);
             }
             if let Some(index) = repo_name.find('@') {
@@ -111,11 +111,8 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
     };
 
     if _res.is_empty() || _des.is_empty() {
-        die!(
-            &package_name,
-            "No local file '{}'", source
-	);
-	// local
+        die!(&package_name, "No local file '{}'", source);
+    // local
     } else if print && _res == _des {
         println!("found {}", _res);
     }
@@ -124,7 +121,7 @@ pub fn pkg_source_resolve(source: String, dest: String, print: bool) -> (String,
 
 pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
     if !pkg.is_empty() {
-	pkg_find_version(pkg, false);
+        pkg_find_version(pkg, false);
     }
 
     let repo_name: String = get_repo_name();
@@ -139,22 +136,24 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 
     log!(&repo_name, "Reading sources");
 
-    let (sources, dests) = read_sources(sources_file.as_str()).expect("Failed to read sources file");
+    let (sources, dests) =
+        read_sources(sources_file.as_str()).expect("Failed to read sources file");
 
     for (source, dest) in sources.iter().zip(dests.unwrap().iter()) {
-	let (res, des) = pkg_source_resolve(source.clone(), dest.clone(), print);
+        let (res, des) = pkg_source_resolve(source.clone(), dest.clone(), print);
 
-	mkcd(remove_chars_after_last(&des, '/'));
+        mkcd(remove_chars_after_last(&des, '/'));
 
-	// if it is a local source both res and des are set to the same value
-	if res != des {
-	    if !skip_git && res.starts_with("git+") {
-		// place holder
-		pkg_source_git(&repo_name, res.as_str(), des.as_str()).expect("Failed to fetch contents of repository");
-	    } else if !res.starts_with("git+") {
-		pkg_source_url(&res, Path::new(&des)).unwrap_or_else(|err| die!("Failed to download file:", "{}", err));
-	    }
-	}
+        // if it is a local source both res and des are set to the same value
+        if res != des {
+            if !skip_git && res.starts_with("git+") {
+                pkg_source_git(&repo_name, res.as_str(), des.as_str())
+                    .expect("Failed to fetch contents of repository");
+            } else {
+                pkg_source_url(&res, Path::new(&des))
+                    .unwrap_or_else(|err| die!("Failed to download file:", "{}", err));
+            }
+        }
     }
 }
 
@@ -163,8 +162,8 @@ pub fn pkg_source(pkg: &str, skip_git: bool, print: bool) {
 pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(), git2::Error> {
     let repo = Repository::init(des)?;
     let remote: &str = match source {
-	_ if !source.is_empty() => source.split("git+").last().unwrap(),
-	_ => "origin",
+        _ if !source.is_empty() => source.split("git+").last().unwrap(),
+        _ => "origin",
     };
 
     // Figure out whether it's a named remote or a URL
@@ -224,26 +223,26 @@ pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(),
     remote.download(&[] as &[&str], Some(&mut fo))?;
 
     {
-	// If there are local objects (we got a thin pack), then tell the user
-	// how many objects we saved from having to cross the network.
-	let stats = remote.stats();
-	if stats.local_objects() > 0 {
-	    println!(
-		"\rReceived {}/{} objects in {} bytes (used {} local \
+        // If there are local objects (we got a thin pack), then tell the user
+        // how many objects we saved from having to cross the network.
+        let stats = remote.stats();
+        if stats.local_objects() > 0 {
+            println!(
+                "\rReceived {}/{} objects in {} bytes (used {} local \
 		 objects)",
-		stats.indexed_objects(),
-		stats.total_objects(),
-		stats.received_bytes(),
-		stats.local_objects()
-	    );
-	} else {
-	    println!(
-		"\rReceived {}/{} objects in {} bytes",
-		stats.indexed_objects(),
-		stats.total_objects(),
-		stats.received_bytes()
-	    );
-	}
+                stats.indexed_objects(),
+                stats.total_objects(),
+                stats.received_bytes(),
+                stats.local_objects()
+            );
+        } else {
+            println!(
+                "\rReceived {}/{} objects in {} bytes",
+                stats.indexed_objects(),
+                stats.total_objects(),
+                stats.received_bytes()
+            );
+        }
     }
 
     // Disconnect the underlying connection to prevent from idling.
@@ -268,36 +267,44 @@ pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(),
     Ok(())
 }
 
-    pub fn pkg_source_tar(res: String, no_leading_dir: bool) {
-	let file: File = File::open(res.clone()).expect("Failed to open tar file");
-	let extension: Option<&str> = Path::new(res.as_str()).extension().and_then(|ext| ext.to_str());
-	let mut decoder: Box<dyn Read> = match extension {
-	    Some("gz") => Box::new(GzDecoder::new(file)),
-	    Some("xz") => Box::new(XzDecoder::new(file)),
-	    Some("bz2") => Box::new(BzDecoder::new(file)),
-	    Some("zst") => Box::new(Decoder::new(file).expect("Failed to decompress tar.zst archive")),
-	    _ => return,
-	};
+pub fn pkg_source_tar(res: String, no_leading_dir: bool) {
+    let file: File = File::open(res.clone()).expect("Failed to open tar file");
+    let extension: Option<&str> = Path::new(res.as_str())
+        .extension()
+        .and_then(|ext| ext.to_str());
+    let mut decoder: Box<dyn Read> = match extension {
+        Some("gz") => Box::new(GzDecoder::new(file)),
+        Some("xz") => Box::new(XzDecoder::new(file)),
+        Some("bz2") => Box::new(BzDecoder::new(file)),
+        Some("zst") => Box::new(Decoder::new(file).expect("Failed to decompress tar.zst archive")),
+        _ => return,
+    };
 
     let mut archive: Archive<&mut Box<dyn std::io::Read>> = Archive::new(&mut decoder);
 
     // extract contents of tar directly to current dir
     for entry in archive.entries().unwrap() {
-	let mut entry = entry.unwrap();
-	let path = entry.path().unwrap();
+        let mut entry = entry.unwrap();
+        let path = entry.path().unwrap();
 
-	let mut dest_path: PathBuf = Path::new(".").to_path_buf();
-	// remove first level directory from dest
-	if !no_leading_dir {
-	    dest_path = dest_path.join(path);
-	} else {
-	    dest_path = dest_path.join(path.components().skip(1).collect::<std::path::PathBuf>().display().to_string());
-	}
+        let mut dest_path: PathBuf = Path::new(".").to_path_buf();
+        // remove first level directory from dest
+        if !no_leading_dir {
+            dest_path = dest_path.join(path);
+        } else {
+            dest_path = dest_path.join(
+                path.components()
+                    .skip(1)
+                    .collect::<std::path::PathBuf>()
+                    .display()
+                    .to_string(),
+            );
+        }
 
-	if let Err(err) = entry.unpack(dest_path) {
-	    eprintln!("Failed to extract file: {}", err);
-	    continue
-	}
+        if let Err(err) = entry.unpack(dest_path) {
+            eprintln!("Failed to extract file: {}", err);
+            continue;
+        }
     }
 }
 
@@ -308,26 +315,23 @@ pub fn pkg_source_url(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let repo_name: String = get_repo_name();
 
-    log!(
-        &repo_name,
-        "Downloading {}", download_source
-    );
+    log!(&repo_name, "Downloading {}", download_source);
 
     let response: Response = HTTP_CLIENT.get(download_source).call()?;
 
     let total_size: u64 = response
         .header("Content-Length")
         .and_then(|length| length.parse::<u64>().ok())
-	.unwrap_or(0);
+        .unwrap_or(0);
     let mut downloaded: u64 = 0;
     let mut buffer: [u8; 8192] = [0; 8192];
 
     // get file_name from download_dest variable
     let file_name: String = format!("{}", download_dest.display())
-	.split('/')
-	.last()
-	.unwrap()
-	.to_owned();
+        .split('/')
+        .last()
+        .unwrap()
+        .to_owned();
 
     // tmp file
     let (mut tmp_file, tmp_file_path) = tmp_file(file_name.as_str(), "download")?;
@@ -335,25 +339,24 @@ pub fn pkg_source_url(
     let mut response_reader = response.into_reader();
 
     while let Ok(bytes_read) = response_reader.read(&mut buffer) {
-	if bytes_read == 0 {
-	    break
-	}
+        if bytes_read == 0 {
+            break;
+        }
 
-	downloaded += bytes_read as u64;
+        downloaded += bytes_read as u64;
 
-	print_progress(downloaded, total_size);
+        print_progress(downloaded, total_size);
 
-	tmp_file.write_all(&buffer[..bytes_read])?;
+        tmp_file.write_all(&buffer[..bytes_read])?;
     }
 
     println!("\rDownloading {}: 100% (Completed)", download_source);
 
     // move tmp_file
-    std::fs::rename(tmp_file_path, download_dest)
-        .expect("Failed to move tmp_file");
+    std::fs::rename(tmp_file_path, download_dest).expect("Failed to move tmp_file");
 
     Ok(())
-    }
+}
 
 pub fn print_progress(progress: u64, total_size: u64) {
     let percent: f64 = (progress as f64 / total_size as f64) * 100.0;
@@ -382,7 +385,7 @@ pub fn download_action(c: &Context) {
 
     if !packages.is_empty() {
         for package in packages {
-	    pkg_source(package, false, true);
+            pkg_source(package, false, true);
         }
     } else {
         pkg_source("", false, true);

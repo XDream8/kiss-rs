@@ -18,14 +18,14 @@ pub fn list_action(c: &Context) {
 
         for package in installed_packages {
             let version: String = cat(&package.join("version"))
-		.unwrap()
-		.replace(' ', "-")
-		.replace('\n', "");
-	    println!(
-		"{} {}",
-		package.file_name().unwrap().to_str().unwrap(),
-		version
-	    )
+                .unwrap()
+                .replace(' ', "-")
+                .replace('\n', "");
+            println!(
+                "{} {}",
+                package.file_name().unwrap().to_str().unwrap(),
+                version
+            )
         }
     } else {
         for package in search {

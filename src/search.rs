@@ -23,18 +23,17 @@ pub fn pkg_find_version(name: &str, print: bool) -> String {
     let version_path = package_path.join("version");
 
     if version_path.exists() {
-        let mut version: Vec<String> = read_a_files_lines(
-	    &version_path,
-	).unwrap_or_else(|_| panic!("Failed to read version file ({})", version_path.display()));
+        let mut version: Vec<String> = read_a_files_lines(&version_path)
+            .unwrap_or_else(|_| panic!("Failed to read version file ({})", version_path.display()));
 
-	// part version and release
-	version = version
-	    .first()
-	    .unwrap()
-	    .to_owned()
-	    .split(' ')
-	    .map(|e| e.to_owned())
-	    .collect();
+        // part version and release
+        version = version
+            .first()
+            .unwrap()
+            .to_owned()
+            .split(' ')
+            .map(|e| e.to_owned())
+            .collect();
 
         // first element is version
         let ver_pre = version.clone().into_iter().next().unwrap();
@@ -42,10 +41,10 @@ pub fn pkg_find_version(name: &str, print: bool) -> String {
         let rel_pre = version.clone().into_iter().nth(1).unwrap();
 
         if print {
-	    println!("{}:{}-{}", package_path.display(), ver_pre, rel_pre);
+            println!("{}:{}-{}", package_path.display(), ver_pre, rel_pre);
         } else {
-	    return format!("{}-{}", ver_pre, rel_pre).to_owned();
-	}
+            return format!("{}-{}", ver_pre, rel_pre).to_owned();
+        }
     }
     name.to_owned()
 }
@@ -64,22 +63,22 @@ pub fn pkg_find(name: &str, print: bool) -> String {
     for path in kiss_path {
         let packages: Vec<_> = read_a_dir_and_sort(path.as_str(), false);
         for package in packages {
-	    let package_name = package.file_name().unwrap().to_str().unwrap();
-	    // find packages and print
-	    if print && package_name.contains(name) {
-		println!("{}", package.display());
-	    }
-	    // find the first package that matches in KISS_PATH and break the loop
-	    else if !print && name == package_name {
-		wanted_package = format!("{}", package.display());
-		break;
-	    }
+            let package_name = package.file_name().unwrap().to_str().unwrap();
+            // find packages and print
+            if print && package_name.contains(name) {
+                println!("{}", package.display());
+            }
+            // find the first package that matches in KISS_PATH and break the loop
+            else if !print && name == package_name {
+                wanted_package = format!("{}", package.display());
+                break;
+            }
         }
 
-	// if wanted_package is found break out of loop
-	if !print && !wanted_package.is_empty() {
-	    break;
-	}
+        // if wanted_package is found break out of loop
+        if !print && !wanted_package.is_empty() {
+            break;
+        }
     }
 
     if !wanted_package.is_empty() {
@@ -96,7 +95,7 @@ pub fn pkg_find(name: &str, print: bool) -> String {
             die!(&wanted_package.clone(), "Unable to get directory name");
         }
     } else if !print && wanted_package.is_empty() {
-	die!(name, "not found");
+        die!(name, "not found");
     }
 
     wanted_package

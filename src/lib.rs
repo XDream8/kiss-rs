@@ -1,13 +1,13 @@
 //incomplete
 pub mod build;
-pub mod manifest;
 pub mod install;
+pub mod manifest;
 // complete
 pub mod checksum;
 pub mod list;
+pub mod logging;
 pub mod search;
 pub mod source;
-pub mod logging;
 
 use std::fs;
 use std::fs::File;
@@ -26,24 +26,26 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
 // http client
-use ureq::{Agent, AgentBuilder};
 use std::time::Duration;
+use ureq::{Agent, AgentBuilder};
 
 // Variables
 // almost all global variables should be lazy
 
 // reusable lazy initialized HTTP CLIENT
-pub static HTTP_CLIENT: Lazy<Agent> = Lazy::new(|| AgentBuilder::new()
-						.timeout_read(Duration::from_secs(10))
-						.timeout_write(Duration::from_secs(10))
-						.build());
+pub static HTTP_CLIENT: Lazy<Agent> = Lazy::new(|| {
+    AgentBuilder::new()
+        .timeout_read(Duration::from_secs(10))
+        .timeout_write(Duration::from_secs(10))
+        .build()
+});
 
 pub static REPO_DIR: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(get_current_working_dir()));
 pub static REPO_NAME: Lazy<Mutex<String>> = Lazy::new(|| {
     let repo_dir = get_repo_dir();
     let mut result: String = String::new();
     if Path::new(&repo_dir.as_str()).exists() {
-	result = get_directory_name(&repo_dir).to_owned();
+        result = get_directory_name(&repo_dir).to_owned();
     }
     Mutex::new(result)
 });
@@ -52,9 +54,9 @@ pub static CHO_DB: &str = "var/db/kiss/choices";
 pub static PKG_DB: &str = "var/db/kiss/installed";
 pub static SYS_DB: Lazy<String> = Lazy::new(|| {
     if KISS_ROOT.is_empty() {
-	(*PKG_DB).to_string()
+        (*PKG_DB).to_string()
     } else {
-	format!("{}/{}", *KISS_ROOT, PKG_DB).replace("//", "/")
+        format!("{}/{}", *KISS_ROOT, PKG_DB).replace("//", "/")
     }
 });
 
@@ -77,12 +79,14 @@ pub static TMP_DIR: Lazy<String> = Lazy::new(|| format!("{}/tmp", *PROC));
 pub static KISS_PID: Lazy<u32> = Lazy::new(std::process::id);
 pub static KISS_TMP: Lazy<String> =
     Lazy::new(|| get_env_variable("KISS_TMP", format!("{}/kiss", *CACHE)));
-pub static KISS_CHOICE: Lazy<String> = Lazy::new(|| get_env_variable("KISS_CHOICE", "1".to_owned()));
+pub static KISS_CHOICE: Lazy<String> =
+    Lazy::new(|| get_env_variable("KISS_CHOICE", "1".to_owned()));
 pub static KISS_DEBUG: Lazy<String> = Lazy::new(|| get_env_variable("KISS_DEBUG", "0".to_owned()));
 pub static KISS_LVL: Lazy<String> = Lazy::new(|| get_env_variable("KISS_LVL", "1".to_owned()));
 pub static KISS_ROOT: Lazy<String> = Lazy::new(|| get_env_variable("KISS_ROOT", "/".to_owned()));
 
-pub static KISS_COMPRESS: Lazy<String> = Lazy::new(|| get_env_variable("KISS_COMPRESS", "gz".to_owned()));
+pub static KISS_COMPRESS: Lazy<String> =
+    Lazy::new(|| get_env_variable("KISS_COMPRESS", "gz".to_owned()));
 pub static KISS_FORCE: Lazy<String> = Lazy::new(|| get_env_variable("KISS_FORCE", "0".to_owned()));
 pub static KISS_STRIP: Lazy<String> = Lazy::new(|| get_env_variable("KISS_STRIP", "1".to_owned()));
 
@@ -146,7 +150,7 @@ pub fn get_deps() -> Vec<String> {
 pub fn remove_dep(element: &str) {
     let mut vector = DEPS.lock().unwrap();
     if let Some(index) = vector.iter().position(|x| *x == element) {
-	vector.remove(index);
+        vector.remove(index);
     }
 }
 
@@ -163,7 +167,7 @@ pub fn get_explicit() -> Vec<String> {
 pub fn remove_explicit(element: &str) {
     let mut vector = EXPLICIT.lock().unwrap();
     if let Some(index) = vector.iter().position(|x| *x == element) {
-	vector.remove(index);
+        vector.remove(index);
     }
 }
 
@@ -205,13 +209,16 @@ pub fn cat(path: &Path) -> Result<String> {
     }
 }
 
-pub fn read_a_files_lines(file_path: impl AsRef<Path> + std::convert::AsRef<std::ffi::OsStr>) -> Result<Vec<String>> {
+pub fn read_a_files_lines(
+    file_path: impl AsRef<Path> + std::convert::AsRef<std::ffi::OsStr>,
+) -> Result<Vec<String>> {
     if Path::new(&file_path).exists() {
-	let f = File::open(file_path).unwrap();
-	let buf = BufReader::new(f);
-	return Ok(buf.lines()
-		  .map(|l| l.expect("Couldn't parse line"))
-		  .collect::<Vec<String>>());
+        let f = File::open(file_path).unwrap();
+        let buf = BufReader::new(f);
+        return Ok(buf
+            .lines()
+            .map(|l| l.expect("Couldn't parse line"))
+            .collect::<Vec<String>>());
     }
 
     Ok(vec![])
@@ -257,26 +264,26 @@ pub fn get_env_variable(env: &str, default_value: String) -> String {
 
 pub fn set_env_variable_if_undefined(name: &str, value: &str) {
     if env::var(name).is_err() {
-	env::set_var(name, value);
+        env::set_var(name, value);
     }
 }
 
 // used by build command
 pub fn copy_folder(source: &Path, destination: &Path) -> Result<()> {
     if source.is_dir() {
-	fs::create_dir_all(destination)?;
+        fs::create_dir_all(destination)?;
 
-	for entry in fs::read_dir(source)? {
-	    let entry = entry?;
-	    let source_path = entry.path();
-	    let destination_path = destination.join(entry.file_name());
+        for entry in fs::read_dir(source)? {
+            let entry = entry?;
+            let source_path = entry.path();
+            let destination_path = destination.join(entry.file_name());
 
-	    if source_path.is_dir() {
-		copy_folder(&source_path, &destination_path)?;
-	    } else {
-		fs::copy(&source_path, &destination_path)?;
-	    }
-	}
+            if source_path.is_dir() {
+                copy_folder(&source_path, &destination_path)?;
+            } else {
+                fs::copy(&source_path, &destination_path)?;
+            }
+        }
     }
 
     Ok(())
@@ -288,24 +295,24 @@ pub fn read_a_dir_and_sort(path: &str, recursive: bool) -> Vec<PathBuf> {
     let folder_path = Path::new(path);
 
     if folder_path.is_dir() {
-	for entry in fs::read_dir(folder_path).expect("Failed to read directory") {
-	    let entry = entry.unwrap();
-	    let path = entry.path();
+        for entry in fs::read_dir(folder_path).expect("Failed to read directory") {
+            let entry = entry.unwrap();
+            let path = entry.path();
 
-	    if path.is_file() {
-		    let file_name = path.file_name().unwrap().to_string_lossy().into_owned();
-		    if file_name.ends_with(".la") || file_name == "charset.alias" {
-		        continue;
-		    }
-	    }
+            if path.is_file() {
+                let file_name = path.file_name().unwrap().to_string_lossy().into_owned();
+                if file_name.ends_with(".la") || file_name == "charset.alias" {
+                    continue;
+                }
+            }
 
-	    filtered_entries.push(path.clone());
+            filtered_entries.push(path.clone());
 
-	    if recursive && path.is_dir() {
-		let subfolder_entries = read_a_dir_and_sort(&path.to_string_lossy(), recursive);
-		filtered_entries.extend(subfolder_entries);
-	    }
-	}
+            if recursive && path.is_dir() {
+                let subfolder_entries = read_a_dir_and_sort(&path.to_string_lossy(), recursive);
+                filtered_entries.extend(subfolder_entries);
+            }
+        }
     }
 
     // sort
@@ -328,23 +335,23 @@ pub fn read_sources(path: &str) -> Result<(Vec<String>, Option<Vec<String>>)> {
     let mut _dest: Vec<String> = Vec::new();
 
     for source in sources {
-	let mut source = source.clone();
-	let mut dest = String::new();
+        let mut source = source.clone();
+        let mut dest = String::new();
 
-	// consider user-given folder name
-	if source.contains(' ') {
+        // consider user-given folder name
+        if source.contains(' ') {
             let source_parts: Vec<String> = source.split(' ').map(|l| l.to_owned()).collect();
             source = source_parts.first().unwrap().to_owned();
             dest = source_parts
-		.last()
-		.unwrap()
-		.to_owned()
-		.trim_end_matches('/')
-		.to_owned();
-	}
+                .last()
+                .unwrap()
+                .to_owned()
+                .trim_end_matches('/')
+                .to_owned();
+        }
 
-	_source.push(source);
-	_dest.push(dest);
+        _source.push(source);
+        _dest.push(dest);
     }
 
     Ok((_source, Some(_dest)))
@@ -356,9 +363,13 @@ fn resolve_path(path: &str) -> Option<PathBuf> {
     let parent = rpath.parent()?;
 
     let absolute_path = if parent.is_absolute() {
-        parent.to_path_buf().join(rpath.file_name().unwrap_or_default())
+        parent
+            .to_path_buf()
+            .join(rpath.file_name().unwrap_or_default())
     } else {
-        Path::new(&*KISS_ROOT).join(parent).join(rpath.file_name().unwrap_or_default())
+        Path::new(&*KISS_ROOT)
+            .join(parent)
+            .join(rpath.file_name().unwrap_or_default())
     };
 
     Some(absolute_path)

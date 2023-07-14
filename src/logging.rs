@@ -1,4 +1,3 @@
-
 // macros
 #[macro_export]
 macro_rules! log {

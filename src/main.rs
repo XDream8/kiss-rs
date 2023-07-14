@@ -7,15 +7,15 @@ use std::process::exit;
 
 // signal handling
 use kiss::{create_tmp_dirs, pkg_clean};
+use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, SIGINT};
 use std::process;
-use nix::sys::signal::{SIGINT, SigHandler, SigAction, SaFlags, SigSet};
 
 use kiss::build::build_action;
 use kiss::checksum::checksum_action;
+use kiss::install::install_action;
 use kiss::list::list_action;
 use kiss::search::search_action;
 use kiss::source::download_action;
-use kiss::install::install_action;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -25,43 +25,43 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .usage(format!("{} [file(s)] [args]", env!("CARGO_PKG_NAME")))
         .action(action)
-	.command(
-	    Command::new("build")
+        .command(
+            Command::new("build")
                 .description("Build packages")
                 .alias("b")
                 .usage("kiss build <packages>")
                 .action(build_action),
-	)
-	.command(
-	    Command::new("checksum")
+        )
+        .command(
+            Command::new("checksum")
                 .description("Generate checksums")
                 .alias("c")
                 .usage("kiss checksum")
                 .action(checksum_action),
         )
         .command(
-	    Command::new("download")
+            Command::new("download")
                 .description("Download sources")
                 .alias("d")
                 .usage("kiss download")
                 .action(download_action),
         )
         .command(
-	    Command::new("list")
+            Command::new("list")
                 .description("List installed packages")
                 .alias("l")
                 .usage("kiss list <package>")
                 .action(list_action),
         )
         .command(
-	    Command::new("search")
+            Command::new("search")
                 .description("Search for packages")
                 .alias("s")
                 .usage("kiss search <package>")
                 .action(search_action),
         )
-	.command(
-	    Command::new("install")
+        .command(
+            Command::new("install")
                 .description("Install packages")
                 .alias("i")
                 .usage("kiss install <package>")
@@ -70,10 +70,12 @@ fn main() {
 
     // Handle Ctrl-C
     unsafe {
-	let sig_action = SigAction::new(
-	    SigHandler::Handler(handle_sigint as extern "C" fn (nix::libc::c_int)),
-	    SaFlags::empty(), SigSet::empty(),);
-	let _ = nix::sys::signal::sigaction(SIGINT, &sig_action);
+        let sig_action = SigAction::new(
+            SigHandler::Handler(handle_sigint as extern "C" fn(nix::libc::c_int)),
+            SaFlags::empty(),
+            SigSet::empty(),
+        );
+        let _ = nix::sys::signal::sigaction(SIGINT, &sig_action);
     }
 
     // create tmp dirs

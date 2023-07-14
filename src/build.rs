@@ -290,7 +290,7 @@ pub fn pkg_depends(pkg: String, expl: bool, filter: bool, dep_type: String) {
     }
 
     // add to dependency vec
-    if !expl || dep_type == "make" && !pkg_cache(pkg.as_str()).is_some() {
+    if !expl || dep_type == "make" && pkg_cache(pkg.as_str()).is_none() {
 	    add_dep(pkg);
     }
 }

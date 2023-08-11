@@ -1,0 +1,23 @@
+[package]
+name = "kiss-manifest"
+version = "0.1.0"
+edition = "2021"
+authors = ["XDream8 <WolfsDream@proton.me>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://codeberg.org/XDream8/kiss-rs"
+description = "display all files owned by a package"
+
+# [lib]
+# name = "kiss-manifest"
+# path = "src/lib.rs"
+
+[dependencies]
+shared_lib = { path = "../shared_lib" }
+## cli
+seahorse = "2.1"
+## threading
+rayon = { version = "1.7.0", optional = true }
+
+[features]
+threading = ["dep:rayon"]

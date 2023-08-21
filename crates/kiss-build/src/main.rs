@@ -2,12 +2,12 @@ mod build;
 
 // for cli-args
 use seahorse::{App, Context};
+use shared_lib::flags::*;
+use shared_lib::get_args;
+use shared_lib::globals::{get_config, set_config, Config, Dependencies, DEPENDENCIES};
+use shared_lib::jobs_flag;
 use std::env;
 use std::process::exit;
-use shared_lib::get_args;
-use shared_lib::globals::{Config, Dependencies, DEPENDENCIES, get_config, set_config};
-use shared_lib::flags::*;
-use shared_lib::jobs_flag;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
 use shared_lib::signal::{create_tmp_dirs, pkg_clean};
@@ -26,6 +26,7 @@ fn main() {
         .flag(debug_flag())
         .flag(force_flag())
         .flag(prompt_flag())
+        .flag(quiet_flag())
         .flag(pid_flag())
         .flag(kiss_compress_flag())
         .flag(kiss_cache_dir_flag())

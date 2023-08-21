@@ -422,7 +422,11 @@ pub fn pkg_build(config: &Config, pkg: &str) {
 
     let mut child: Child = Command::new(executable)
         .arg(install_dir.to_string_lossy().to_string())
-        .stdout(Stdio::inherit())
+        .stdout(if config.quiet {
+            Stdio::null()
+        } else {
+            Stdio::inherit()
+        })
         .spawn()
         .expect("Failed to execute build file");
     // wait for build to finish

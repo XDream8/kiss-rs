@@ -1,8 +1,7 @@
 use seahorse::{Flag, FlagType};
 
 pub fn choice_flag() -> Flag {
-    Flag::new("choice", FlagType::Bool)
-        .description("disable alternatives system")
+    Flag::new("choice", FlagType::Bool).description("disable alternatives system")
 }
 
 pub fn debug_flag() -> Flag {
@@ -18,13 +17,17 @@ pub fn force_flag() -> Flag {
 }
 
 pub fn prompt_flag() -> Flag {
-    Flag::new("prompt", FlagType::Bool)
-        .description("disable prompts")
+    Flag::new("prompt", FlagType::Bool).description("disable prompts")
 }
 
 pub fn strip_flag() -> Flag {
-    Flag::new("strip", FlagType::Bool)
-        .description("disable package stripping")
+    Flag::new("strip", FlagType::Bool).description("disable package stripping")
+}
+
+pub fn quiet_flag() -> Flag {
+    Flag::new("quiet", FlagType::Bool)
+        .description("do not print build logs")
+        .alias("q")
 }
 
 pub fn pid_flag() -> Flag {
@@ -54,7 +57,9 @@ pub fn kiss_cache_dir_flag() -> Flag {
 
 pub fn kiss_tmp_dir_flag() -> Flag {
     Flag::new("kiss-tmp-dir", FlagType::String)
-        .description("Where packages will be built.(default: '${XDG_CACHE_HOME:-$HOME/.cache}/kiss')")
+        .description(
+            "Where packages will be built.(default: '${XDG_CACHE_HOME:-$HOME/.cache}/kiss')",
+        )
         .alias("tmp-dir")
         .alias("tmp")
 }
@@ -72,7 +77,9 @@ macro_rules! jobs_flag {
     () => {{
         use seahorse::{Flag, FlagType};
         Flag::new("jobs", FlagType::Int)
-            .description("Number of cores that will be used for threaded operations(disabled by default)")
+            .description(
+                "Number of cores that will be used for threaded operations(disabled by default)",
+            )
             .alias("j")
     }};
 }

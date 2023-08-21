@@ -248,7 +248,7 @@ pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(),
     fo.remote_callbacks(cb);
     fo.prune(git2::FetchPrune::On);
     fo.update_fetchhead(true);
-    remote.download(&[] as &[&str], Some(&mut fo))?;
+    remote.download(&["main"] as &[&str], Some(&mut fo))?;
 
     {
         // If there are local objects (we got a thin pack), then tell the user
@@ -284,13 +284,14 @@ pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(),
 
     // checkout fetched content
     let checkout_repo = Repository::open(des)?;
-    let reference = checkout_repo.find_reference("FETCH_HEAD")?;
-    let commit = reference.peel_to_commit()?;
+    // let reference = checkout_repo.find_reference("FETCH_HEAD")?;
+    // let commit = reference.peel_to_commit()?;
     // force checkout
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
     checkout_builder.force();
 
-    checkout_repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder))?;
+    // checkout_repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder))?;
+    checkout_repo.checkout_head(Some(&mut checkout_builder))?;
 
     Ok(())
 }

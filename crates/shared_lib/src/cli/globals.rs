@@ -23,6 +23,7 @@ pub struct Config {
     pub force: bool,
     pub prompt: bool,
     pub strip: bool,
+    pub quiet: bool,
     pub lvl: u8,
     pub pid: u32,
     pub proc: PathBuf,
@@ -112,6 +113,7 @@ impl Config {
             force: false,
             prompt: true,
             strip: true,
+            quiet: false,
             lvl: 1,
             pid,
             proc,
@@ -189,6 +191,7 @@ pub fn set_config(c: &Context, handle_signals: bool) {
     context.force = c.bool_flag("force");
     context.prompt = !c.bool_flag("prompt");
     context.strip = !c.bool_flag("strip");
+    context.quiet = c.bool_flag("quiet");
 
     if let Ok(pid) = c.int_flag("pid") {
         context.pid = pid as u32;

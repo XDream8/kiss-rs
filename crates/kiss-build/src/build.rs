@@ -15,9 +15,9 @@ use shared_lib::signal::pkg_clean;
 use shared_lib::{die, log};
 
 // thread
-#[cfg(feature = "threading")]
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use shared_lib::iter;
+// #[cfg(feature = "threading")]
+// use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+// use shared_lib::iter;
 
 // std
 use std::fs::{self, File};
@@ -75,9 +75,9 @@ fn is_matching_directory(path: &Path) -> bool {
         .and_then(|p| p.file_name())
         .and_then(std::ffi::OsStr::to_str);
 
-    let is_sbin = file_name == "sbin";
-    let is_bin = file_name == "bin";
-    let is_lib = parent_dir_name == Some("lib");
+    let is_sbin: bool = file_name == "sbin";
+    let is_bin: bool = file_name == "bin";
+    let is_lib: bool = parent_dir_name == Some("lib");
 
     is_sbin || is_bin || is_lib
 }
@@ -91,8 +91,8 @@ pub fn strip_files_recursive(directory: &Path) {
 
     for entry in entries {
         let entry = entry.unwrap();
-        let file_path = entry.path();
-        let file_path_string = file_path.to_string_lossy().to_string();
+        let file_path: PathBuf = entry.path();
+        let file_path_string: String = file_path.to_string_lossy().to_string();
 
         if file_path.is_dir() {
             strip_files_recursive(&file_path);
@@ -346,7 +346,10 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
         }
     }
 
-    let all_packages = iter!(dependencies.normal).chain(iter!(dependencies.explicit));
+    let all_packages = dependencies
+        .normal
+        .iter()
+        .chain(dependencies.explicit.iter());
 
     // download and check sources
     for package in all_packages.clone() {

@@ -74,16 +74,20 @@ pub fn read_a_files_lines(
         let buf: BufReader<File> = BufReader::new(f);
         let lines: Vec<String> = buf.lines().map_while(Result::ok).collect();
 
-        return Ok(lines);
+        Ok(lines)
+    } else {
+        Ok(vec![])
     }
-
-    Ok(vec![])
 }
 
 #[inline]
 pub fn mkcd(folder_name: impl AsRef<Path> + AsRef<std::ffi::OsStr> + AsRef<str>) {
-    fs::create_dir_all(&folder_name).expect("Failed to create folder");
-    env::set_current_dir(&folder_name).expect("Failed to change directory");
+    if let Err(err) = fs::create_dir_all(&folder_name) {
+        die!("Failed to create folder:", err);
+    }
+    if let Err(err) = env::set_current_dir(&folder_name) {
+        die!("Failed to change directory:", err);
+    }
 }
 
 pub fn remove_chars_after_last(input: &str, ch: char) -> &str {
@@ -115,10 +119,7 @@ pub fn get_directory_name(path: &str) -> &str {
 #[inline]
 pub fn get_env_variable(env: &str, default_value: String) -> String {
     // get output of environment variable
-    match env::var(env) {
-        Ok(v) => v,
-        _ => default_value,
-    }
+    env::var(env).unwrap_or(default_value)
 }
 
 pub fn set_env_variable_if_undefined(name: &str, value: &str) {

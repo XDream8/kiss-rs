@@ -211,77 +211,51 @@ fn pkg_etc<'a>(
 fn file_rwx(file_path: &Path) -> Result<u32, std::io::Error> {
     let permissions = fs::metadata(file_path)?.permissions();
 
-    let mut oct: u32 = 0;
-    let mut o: u32 = 0;
-
-    let rwx_string: String = format!("{:?}", permissions.mode());
-
-    for c in &[14, 22, 31, 44, 52, 61, 74, 82, 91] {
-        let rwx: &str = &rwx_string[*c as usize..];
-
-        match rwx.chars().next() {
-            Some('r') | Some('w') | Some('x') => o += c % 10,
-            Some('s') | Some('t') => o += 1,
-            _ => {}
-        }
-
-        match rwx.chars().nth(1) {
-            Some('t') | Some('T') => oct *= 1,
-            _ => {}
-        }
-
-        if c % 3 == 0 {
-            oct = oct * 10 + o;
-            o = 0;
-        }
-    }
+    let oct: u32 = permissions.mode();
 
     Ok(oct)
 }
 
-fn pkg_install_files<'a>(
+fn pkg_install_files(
     config: &Config,
-    files: impl Iterator<Item = &'a String>,
+    files: &Vec<String>,
     pkg_root: &Path,
     source_dir: &Path,
     overwrite: bool,
     verify: bool,
 ) -> Result<(), std::io::Error> {
     for file in files {
-        if config.debug {
-            println!("Installing: {}", file);
-        }
-
-        let mut dest_path: PathBuf = pkg_root.join(file.strip_prefix('/').unwrap_or(file));
-        let source_path: PathBuf = source_dir.join(file.strip_prefix('/').unwrap_or(file));
+        let file_stripped: &str = file.strip_prefix('/').unwrap_or(file);
+        let mut dest_path: PathBuf = pkg_root.join(file_stripped);
+        let source_path: PathBuf = source_dir.join(file_stripped);
 
         if verify && dest_path.exists() {
             continue;
         }
 
-        let dest_parent: &Path = dest_path.parent().ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid file path (no parent directory)",
-            )
-        })?;
+        let dest_parent: &Path = dest_path.parent().ok_or(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Invalid file path (no parent directory)",
+        ))?;
 
+        // create parent directory of destination if it does not exist
         if !dest_parent.exists() {
             fs::create_dir_all(dest_parent)?;
         }
 
-        if dest_path.is_dir() {
-            if !dest_path.exists() {
-                // Get octal permissions using file_rwx function.
-                let octal_permissions: u32 = file_rwx(&dest_path)?;
-                // create directory
-                fs::create_dir_all(&dest_path)?;
-                // Set permissions for the directory.
-                let permissions = fs::Permissions::from_mode(octal_permissions);
-                fs::set_permissions(&dest_path, permissions)?;
-            } else {
-                continue;
-            }
+        // if a directory does not exist then create it with proper permissions
+        // then continue with the next file
+        if source_path.is_dir() && !dest_path.exists() {
+            // Get octal permissions using file_rwx function.
+            let octal_permissions: u32 = file_rwx(&source_path)?;
+            // create directory
+            fs::create_dir_all(&dest_path)?;
+            // Set permissions for the directory.
+            let permissions = fs::Permissions::from_mode(octal_permissions);
+            fs::set_permissions(&dest_path, permissions)?;
+            continue;
+        } else if source_path.is_dir() {
+            continue;
         }
 
         if let Some(parent) = source_path.parent() {
@@ -293,18 +267,25 @@ fn pkg_install_files<'a>(
             }
         }
 
-        if is_symlink(&dest_path) {
+        // symlink checks
+        if dest_path.is_symlink() || is_symlink(&dest_path) {
             if overwrite {
-                fs::remove_file(&dest_path)?;
+                // ignore errors
+                let _ = fs::remove_file(&dest_path);
             } else {
                 continue;
             }
         }
 
-        if dest_path.exists() && !overwrite {
+        // verify
+        if verify && dest_path.exists() {
             continue;
+        } else if overwrite && dest_path.exists() && dest_path.is_file() {
+            // ignore errors
+            let _ = fs::remove_file(&dest_path);
         }
 
+        // /etc file checks
         if file.contains("/etc/") {
             let sum_old: Option<String> = match verify {
                 true => {
@@ -330,12 +311,21 @@ fn pkg_install_files<'a>(
             };
         }
 
-        if is_symlink(dest_path.as_path()) {
+        // install
+        if source_path.is_symlink() || is_symlink(source_path.as_path()) {
             fs::copy(&source_path, &dest_path)?;
         } else {
-            let temp_dest_path = create_temp_dest_path(&dest_path)?;
+            let temp_dest_path: PathBuf = create_temp_dest_path(&dest_path)?;
             fs::copy(&source_path, &temp_dest_path)?;
             fs::rename(&temp_dest_path, &dest_path)?;
+        }
+
+        if config.debug {
+            if overwrite {
+                println!("Installing: {}", file);
+            } else {
+                println!("Installing(in verify mode): {}", file);
+            }
         }
     }
 
@@ -357,22 +347,15 @@ fn create_temp_dest_path(dest_path: &Path) -> Result<PathBuf, std::io::Error> {
 
 fn pkg_remove_files(
     kiss_root: &Path,
-    manifest_path: &str,
+    files: &Vec<String>,
     debug: bool,
 ) -> Result<(), std::io::Error> {
-    let file_list: Vec<String> =
-        read_a_files_lines(manifest_path).expect("Failed to read manifest file");
-
     let mut broken_symlinks: Vec<PathBuf> = Vec::new();
 
-    for file in file_list {
-        if debug {
-            println!("Removing: {}", file);
-        }
-
+    for file in files {
         if file.contains("/etc") {
             let mut sum_pkg: String = String::new();
-            fs::File::open(kiss_root.join(&file))?.read_to_string(&mut sum_pkg)?;
+            fs::File::open(kiss_root.join(file))?.read_to_string(&mut sum_pkg)?;
 
             let hash: String = get_file_hash(
                 format!("{}/{}", kiss_root.to_string_lossy(), file)
@@ -405,6 +388,10 @@ fn pkg_remove_files(
             if !target.exists() {
                 broken_symlinks.push(full_path);
             }
+        }
+
+        if debug {
+            println!("Removing: {}", file);
         }
     }
 
@@ -503,15 +490,15 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
     //
     let tar_man: String = format!("{}/{}/manifest", config.pkg_db, pkg);
 
-    // let old_files: Vec<String> = read_a_files_lines(&tar_man)?;
-    // let new_files: Vec<String> = read_a_files_lines(manifest_path.clone())?;
+    let old_files: Vec<String> = read_a_files_lines(&tar_man)?;
+    let new_files: Vec<String> = read_a_files_lines(manifest_path.clone())?;
 
     // Generate a list of files which exist in the currently installed manifest
     // but not in the newer (to be installed) manifest.
-    // let manifest_diff: Vec<String> = old_files
-    //     .into_iter()
-    //     .filter(|f| !new_files.contains(f))
-    //     .collect();
+    let manifest_diff: Vec<String> = old_files
+        .into_iter()
+        .filter(|f| !new_files.contains(f))
+        .collect();
 
     // let sorted_files: Vec<String> = {
     //     let mut files: Vec<String> = read_a_files_lines(&tar_man)?;
@@ -532,20 +519,17 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
 
     let install_files_result = pkg_install_files(
         config,
-        manifest_reverse.iter(),
+        &manifest_reverse,
         Path::new(&config.kiss_root),
         &extract_dir,
         true,
         false,
     );
-    let remove_files_result = pkg_remove_files(
-        Path::new(&config.kiss_root),
-        manifest_path.to_str().unwrap(),
-        config.debug,
-    );
+    let remove_files_result =
+        pkg_remove_files(Path::new(&config.kiss_root), &manifest_diff, config.debug);
     let install_files_result2 = pkg_install_files(
         config,
-        manifest_reverse.iter(),
+        &manifest_reverse,
         Path::new(&config.kiss_root),
         &extract_dir,
         false,
@@ -561,7 +545,7 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
         (Ok(_), Ok(_), Ok(_)) => log!("Installed successfully:", pkg),
         (Err(err), _, _) => log_and_notify_error("Error installing files:", pkg, err),
         (_, Err(err), _) => log_and_notify_error("Error removing files:", pkg, err),
-        (_, _, Err(err)) => log_and_notify_error("Error installing files:", pkg, err),
+        (_, _, Err(err)) => log_and_notify_error("Error verifying files:", pkg, err),
     }
 
     Ok(())

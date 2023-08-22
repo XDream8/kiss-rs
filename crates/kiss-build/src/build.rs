@@ -1,7 +1,6 @@
 use checksum_lib::{get_file_hash, pkg_verify};
-use install_lib::pkg_cache;
 use kiss_manifest::pkg_manifest;
-use search_lib::{pkg_find, pkg_find_version};
+use search_lib::{pkg_cache, pkg_find, pkg_find_version};
 use source_lib::{pkg_source, pkg_source_resolve, pkg_source_tar, pkg_tar};
 
 use shared_lib::{copy_folder, mkcd, read_a_files_lines, remove_chars_after_last};
@@ -14,6 +13,8 @@ use shared_lib::globals::{get_repo_dir, get_repo_name, Config, Dependencies};
 use shared_lib::signal::pkg_clean;
 use shared_lib::{die, log};
 
+use build_lib::pkg_get_provides;
+
 // thread
 // #[cfg(feature = "threading")]
 // use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -21,7 +22,7 @@ use shared_lib::{die, log};
 
 // std
 use std::fs::{self, File};
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 // build
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -225,28 +226,6 @@ fn pkg_etcsums(config: &Config, pkg: &str) {
             .write_all(hash.as_bytes())
             .expect("Failed to write hash to etcsums file");
     }
-}
-
-#[inline]
-pub fn pkg_get_provides(pkg: &str, provides_path: &Path) -> Result<String, io::Error> {
-    let file: File = File::open(provides_path)?;
-    let reader: BufReader<File> = BufReader::new(file);
-
-    // find the replacement if there is any
-    for line in reader.lines() {
-        let line: &String = &line?;
-        if line.starts_with('#') {
-            continue;
-        };
-        let parts: Vec<&str> = line.split_whitespace().collect();
-
-        if parts.len() == 2 && parts[0] == pkg {
-            return Ok(parts[1].to_owned());
-        }
-    }
-
-    // if we did not find an replacement return pkg
-    Ok(pkg.to_owned())
 }
 
 // the method we use to store deps and explicit deps is different from original kiss pm.

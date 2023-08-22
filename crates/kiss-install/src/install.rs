@@ -1,5 +1,7 @@
+use build_lib::pkg_get_provides;
 use checksum_lib::get_file_hash;
 use kiss_manifest::{pkg_manifest, pkg_manifest_validate};
+use search_lib::pkg_cache;
 use source_lib::pkg_source_tar;
 
 use shared_lib::globals::Config;
@@ -23,8 +25,6 @@ use std::ffi::OsStr;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-
-use install_lib::pkg_cache;
 
 // threading
 #[cfg(feature = "threading")]
@@ -148,10 +148,10 @@ fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String, debug:
 
     let mut count: usize = 0;
 
-    let depends = read_a_files_lines(depends_file_path).unwrap();
+    let depends: Vec<String> = read_a_files_lines(depends_file_path).unwrap();
 
     for dependency in depends {
-        let mut dep = dependency.clone();
+        let mut dep: String = dependency.clone();
         if dependency.starts_with('#') {
             continue;
         }
@@ -164,6 +164,12 @@ fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String, debug:
                 .to_owned();
         }
 
+        // check if user defined a replacement
+        let pkg: &String = &pkg_get_provides(pkg, &config.provides_db).unwrap_or(pkg.to_owned());
+        if &dep != pkg {
+            continue;
+        }
+
         if config.sys_db.join(dep.clone()).exists() {
             continue;
         }
@@ -174,7 +180,7 @@ fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String, debug:
     }
 
     if count != 0 {
-        die!(pkg, "Package not installable, missing {} package(s)", count);
+        die!(pkg, "Package not installable, missing", count, "package(s)");
     }
 }
 

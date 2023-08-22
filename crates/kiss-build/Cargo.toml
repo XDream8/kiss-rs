@@ -8,12 +8,15 @@ readme = "README.md"
 repository = "https://codeberg.org/XDream8/kiss-rs"
 description = "build package(s)"
 
+[lib]
+name = "build_lib"
+path = "src/lib.rs"
+
 [dependencies]
 ## libs
 shared_lib = { path = "../shared_lib" }
 source_lib = { path = "../source_lib" }
 kiss-checksum = { path = "../kiss-checksum" }
-kiss-install = { path = "../kiss-install" }
 kiss-manifest = { path = "../kiss-manifest" }
 kiss-search = { path = "../kiss-search" }
 ## cli

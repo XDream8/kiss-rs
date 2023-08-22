@@ -259,7 +259,6 @@ name = "kiss-build"
 version = "0.1.0"
 dependencies = [
  "kiss-checksum",
- "kiss-install",
  "kiss-manifest",
  "kiss-search",
  "libc",
@@ -295,6 +294,7 @@ dependencies = [
 name = "kiss-install"
 version = "0.1.0"
 dependencies = [
+ "kiss-build",
  "kiss-checksum",
  "kiss-manifest",
  "kiss-search",

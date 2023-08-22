@@ -12,6 +12,7 @@ unlike original kiss, kiss-rs commands are seperate binaries(like: kiss-build, k
 - [X] download
 - [-] install(bugs are expected)
 - [X] list
+- [X] provides
 - [X] search
 
 ** TODO Fix Issues
@@ -28,8 +29,12 @@ unlike original kiss, kiss-rs commands are seperate binaries(like: kiss-build, k
 
 ** using provides system
 - open /var/db/kiss/provides file using your favourite editor:
+    #+begin_src shell
+    $ doas vim /var/db/kiss/provides
+     #+end_src
+- syntax is like this: <replacement> <replaces>
+- for example to replace rust with rustup: rustup rust
+- you can also use kiss-provides cli app:
   #+begin_src shell
-    doas vim /var/db/kiss/provides
+    $ kiss-provides rustup rust
 #+end_src
-- syntax is like this: <package> <replacement>
-- Later i will write an cli app to add/remove replacements to provides file

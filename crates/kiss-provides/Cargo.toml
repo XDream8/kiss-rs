@@ -1,0 +1,16 @@
+[package]
+name = "kiss-provides"
+version = "0.1.0"
+edition = "2021"
+authors = ["XDream8 <WolfsDream@proton.me>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://codeberg.org/XDream8/kiss-rs"
+description = "add/remove package replacements to provides file"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+shared_lib = { path = "../shared_lib" }
+## cli
+seahorse = "2.1"

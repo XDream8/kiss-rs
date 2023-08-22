@@ -15,8 +15,8 @@ pub fn pkg_get_provides(pkg: &str, provides_path: &Path) -> Result<String, io::E
         };
         let parts: Vec<&str> = line.split_whitespace().collect();
 
-        if parts.len() == 2 && parts[0] == pkg {
-            return Ok(parts[1].to_owned());
+        if parts.len() == 2 && parts[1] == pkg {
+            return Ok(parts[0].to_owned());
         }
     }
 

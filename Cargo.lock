@@ -324,6 +324,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kiss-provides"
+version = "0.1.0"
+dependencies = [
+ "seahorse",
+ "shared_lib",
+]
+
+[[package]]
 name = "kiss-search"
 version = "0.1.0"
 dependencies = [

@@ -10,6 +10,7 @@ members = [
   "crates/kiss-install",
   "crates/kiss-list",
   "crates/kiss-manifest",
+  "crates/kiss-provides",
   "crates/kiss-search",
 ]
 

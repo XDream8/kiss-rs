@@ -28,7 +28,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 
 pub fn pkg_extract(config: &Config, pkg: &str) {
-    log!(pkg, "Extracting sources");
+    if config.debug || config.verbose {
+        log!(pkg.to_owned() + ":", "Extracting sources");
+    }
 
     let sources_file: String = format!("{}/sources", get_repo_dir());
 
@@ -320,27 +322,28 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
     }
 
     // log
-    let mut implicit_text: String = String::new();
-    if !dependencies.normal.is_empty() {
-        implicit_text = format!(", implicit: {}", dependencies.normal.join(" "));
+    if dependencies.normal.is_empty() {
+        println!("Building: {}", dependencies.explicit.join(" "))
+    } else {
+        println!(
+            "Building: explicit: {}, implicit: {}",
+            dependencies.explicit.join(" ").trim(),
+            dependencies.normal.join(" ")
+        )
     }
-    log!(
-        "Building:",
-        "explicit:",
-        dependencies.explicit.join(" "),
-        implicit_text
-    );
 
     if !dependencies.normal.is_empty() && config.prompt {
         prompt(None);
     }
 
-    log!("Checking for pre-built dependencies");
+    if config.debug || config.verbose {
+        println!("Checking for pre-built dependencies");
+    }
     // Install any pre-built dependencies if they exist in the binary
     // directory and are up to date.
     for pkg in dependencies.normal.clone() {
         if pkg_cache(config, &pkg).is_some() {
-            log!(pkg, "Found pre-built binary");
+            log!(pkg.to_owned() + ":", "Found pre-built binary");
             dependencies.normal.retain(|x| x != &pkg);
             // pkg_install(pkg, true).expect("Failed to install package");
             // run_action_as_root(vec!["install", pkg], true);
@@ -369,7 +372,7 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
         // print status
         build_cur += 1;
         let build_status: String = format!("Building package ({}/{})", build_cur, package_count);
-        log!(package, build_status);
+        log!(package.to_owned() + ":", build_status);
 
         pkg_find_version(config, package, false);
 
@@ -388,7 +391,7 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
 
         if !dependencies.explicit.contains(package) {
             log!(
-                package,
+                format!("{}:", package),
                 "Needed as a dependency or has an update, installing"
             );
             // pkg_install(pkg, true).expect("Failed to install package");
@@ -410,7 +413,7 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
 pub fn pkg_build(config: &Config, pkg: &str) {
     mkcd(format!("{}/{}", config.mak_dir.to_string_lossy(), pkg).as_str());
 
-    log!(pkg, "Starting build");
+    log!(pkg.to_owned() + ":", "Starting build");
 
     set_env_variable_if_undefined("AR", "ar");
     set_env_variable_if_undefined("CC", "cc");

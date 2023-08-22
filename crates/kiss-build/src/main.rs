@@ -27,6 +27,7 @@ fn main() {
         .flag(force_flag())
         .flag(prompt_flag())
         .flag(quiet_flag())
+        .flag(verbose_flag())
         .flag(pid_flag())
         .flag(kiss_compress_flag())
         .flag(kiss_cache_dir_flag())

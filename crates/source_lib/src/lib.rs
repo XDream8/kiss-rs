@@ -125,10 +125,10 @@ pub fn pkg_source_resolve(
     };
 
     if _res.is_empty() || _des.is_empty() {
-        die!(format!("{}:", package_name), "No local file:", source);
+        die!(package_name.to_owned() + ":", "No local file:", source);
         // local
-    } else if print && _res == _des {
-        log!(format!("{}:", package_name), "found", _res);
+    } else if print && _res == _des && (config.debug || config.verbose) {
+        log!(package_name.to_owned() + ":", "found", _res);
     }
     (_res, _des)
 }
@@ -152,8 +152,8 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
         return;
     }
 
-    if config.debug {
-        log!(&repo_name, "Reading sources");
+    if config.debug || config.verbose {
+        log!(repo_name.to_owned() + ":", "Reading sources");
     }
 
     let sources: Vec<(String, String)> = read_sources(sources_file.to_str().unwrap_or("sources"))

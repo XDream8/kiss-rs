@@ -24,6 +24,7 @@ pub struct Config {
     pub prompt: bool,
     pub strip: bool,
     pub quiet: bool,
+    pub verbose: bool,
     pub lvl: u8,
     pub pid: u32,
     pub proc: PathBuf,
@@ -119,6 +120,7 @@ impl Config {
             prompt: true,
             strip: true,
             quiet: false,
+            verbose: false,
             lvl: 1,
             pid,
             proc,
@@ -199,6 +201,7 @@ pub fn set_config(c: &Context, handle_signals: bool) {
     context.prompt = !c.bool_flag("prompt");
     context.strip = !c.bool_flag("strip");
     context.quiet = c.bool_flag("quiet");
+    context.verbose = c.bool_flag("verbose");
 
     if let Ok(pid) = c.int_flag("pid") {
         context.pid = pid as u32;

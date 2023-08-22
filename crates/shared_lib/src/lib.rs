@@ -37,7 +37,7 @@ pub fn prompt(log_message: Option<String>) {
     }
 
     // Ask for confirmation if extra packages need to be built.
-    log!("Continue?:", "Press Enter to continue or Ctrl+C to abort");
+    println!("Continue?: Press Enter to continue or Ctrl+C to abort");
 
     // get user input
     io::stdin().lock().lines().next();

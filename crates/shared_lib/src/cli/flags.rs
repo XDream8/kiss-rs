@@ -30,6 +30,12 @@ pub fn quiet_flag() -> Flag {
         .alias("q")
 }
 
+pub fn verbose_flag() -> Flag {
+    Flag::new("verbose", FlagType::Bool)
+        .description("print advanced information")
+        .alias("v")
+}
+
 pub fn pid_flag() -> Flag {
     Flag::new("process-id", FlagType::Int)
         .description("set pid(not recommended unless you are using it for testing)")

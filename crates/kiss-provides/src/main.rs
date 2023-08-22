@@ -1,4 +1,4 @@
-use seahorse::{App, Context, Flag, FlagType};
+use seahorse::{App, Context};
 use shared_lib::globals::{get_config, set_config, Config};
 use std::env;
 use std::process::exit;
@@ -89,7 +89,7 @@ fn add_remove_from_provides(
     let provides_line: String = if let Some(replacement) = replacement {
         format!("{} {}", replacement, replaces)
     } else {
-        format!("{}", replaces)
+        replaces.to_owned()
     };
 
     // Check if the desired line exists

@@ -25,3 +25,11 @@ unlike original kiss, kiss-rs commands are seperate binaries(like: kiss-build, k
   - [ ] add circular dependency checks
   - [X] fix bugs(sometimes it does not detect some deps)
 - [ ] replace all .expect(s) with appropriate error management
+
+** using provides system
+- open /var/db/kiss/provides file using your favourite editor:
+  #+begin_src shell
+    doas vim /var/db/kiss/provides
+#+end_src
+- syntax is like this: <package> <replacement>
+- Later i will write an cli app to add/remove replacements to provides file

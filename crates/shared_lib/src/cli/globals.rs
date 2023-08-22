@@ -43,9 +43,11 @@ pub struct Config {
     pub log_dir: PathBuf,
     pub bin_dir: PathBuf,
     // database
+    pub db: String,
     pub cho_db: String,
     pub pkg_db: String,
     pub sys_db: PathBuf,
+    pub provides_db: PathBuf,
 }
 
 // implement a builder function
@@ -83,8 +85,11 @@ impl Config {
         let tmp_dir: PathBuf = proc.join("tmp");
 
         // db stuff
-        let cho_db: String = "var/db/kiss/choices".to_string();
-        let pkg_db: String = "var/db/kiss/installed".to_string();
+        let db: String = String::from("var/db/kiss");
+        let provides_file_path: String = format!("{}/provides", db);
+        let provides_db: PathBuf = kiss_root.join(provides_file_path);
+        let cho_db: String = format!("{}/choices", db);
+        let pkg_db: String = format!("{}/installed", db);
         let sys_db: PathBuf = kiss_root.join(&pkg_db);
 
         // and lastly kiss path
@@ -126,12 +131,14 @@ impl Config {
             pkg_dir,
             tar_dir,
             tmp_dir,
-            cho_db,
-            pkg_db,
-            sys_db,
             sources_dir,
             log_dir,
             bin_dir,
+            db,
+            cho_db,
+            pkg_db,
+            sys_db,
+            provides_db,
         }
     }
 }

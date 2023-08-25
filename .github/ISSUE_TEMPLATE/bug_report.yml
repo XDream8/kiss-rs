@@ -1,0 +1,34 @@
+name: Bug Report
+about: File a bug report
+title: '[BUG]: '
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: version of kiss-rs that this bug occurs
+      placeholder: ex. 0.1.0, git
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: provide steps about how to reproduce this bug
+      placeholder: |
+        - Step 1
+        - Step 2
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output.
+      render: shell
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!

@@ -63,7 +63,13 @@ fn pkg_conflicts(
         true,
         &[]
     ))
-    .filter(|file| file.file_name().unwrap().to_str() == Some("manifest"))
+    .filter(|file| {
+        !file.to_string_lossy().to_string().contains(&format!(
+            "{}/{}",
+            config.sys_db.to_string_lossy(),
+            pkg
+        )) && file.file_name().unwrap().to_str() == Some("manifest")
+    })
     .map(|name| name.to_path_buf())
     .collect();
 
@@ -71,13 +77,6 @@ fn pkg_conflicts(
     let mut safe: bool = false;
 
     for sys_manifest_path in sys_manifest_files {
-        // do not check against the package manifest, if package wanted to be installed is already installed
-        if sys_manifest_path.to_string_lossy()
-            == format!("{}/{}", config.sys_db.to_string_lossy(), pkg)
-        {
-            continue;
-        };
-
         let sys_manifest_file: File = fs::File::open(sys_manifest_path).unwrap();
         let sys_manifest_reader: BufReader<File> = BufReader::new(sys_manifest_file);
 
@@ -141,8 +140,8 @@ fn pkg_conflicts(
     Ok(())
 }
 
-fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String, debug: bool) {
-    if debug {
+fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String) {
+    if config.debug {
         log!(pkg, "Checking if package installable");
     }
 
@@ -414,31 +413,26 @@ fn pkg_remove_files(
 }
 
 pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Error> {
-    // create pkg and tar_file variable but dont set a value
-    let pkg: String;
-    // pkg tarball to be used
-    let tar_file: String;
-
-    if package_tar.contains(".tar.") {
-        tar_file = package_tar.to_owned();
-        // remove everything before the last ’/’ and everything after the ’@’ char
-        pkg = package_tar
-            .rsplit('/')
-            .next()
-            .unwrap()
-            .split('@')
-            .next()
-            .unwrap()
-            .to_owned();
+    let (pkg, tar_file) = if package_tar.contains(".tar.") {
+        (
+            package_tar.to_owned(),
+            // remove everything before the last ’/’ and everything after the ’@’ char
+            package_tar
+                .rsplit('/')
+                .next()
+                .unwrap()
+                .split('@')
+                .next()
+                .unwrap()
+                .to_owned(),
+        )
     } else {
         if let Some(tarball) = pkg_cache(config, package_tar) {
-            tar_file = tarball;
+            (package_tar.to_owned(), tarball)
         } else {
             die!(package_tar, "Not yet built");
         }
-
-        pkg = package_tar.to_owned();
-    }
+    };
 
     // cd into extract directory
     let extract_dir: PathBuf = config.tar_dir.join(pkg.as_str());
@@ -472,7 +466,6 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
             config,
             pkg.as_str(),
             format!("./{}/{}/depends", config.pkg_db, pkg),
-            config.debug,
         );
     }
 

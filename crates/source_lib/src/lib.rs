@@ -371,15 +371,12 @@ pub fn pkg_source_git(
     remote.update_tips(None, true, AutotagOption::Unspecified, None)?;
 
     // checkout fetched content
-    let checkout_repo: Repository = Repository::open(des)?;
-    // let reference = checkout_repo.find_reference("FETCH_HEAD")?;
-    // let commit = reference.peel_to_commit()?;
+    let reference = repo.find_reference("FETCH_HEAD")?;
+    let commit = reference.peel_to_commit()?;
     // force checkout
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
     checkout_builder.force();
-
-    // checkout_repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder))?;
-    checkout_repo.checkout_head(Some(&mut checkout_builder))?;
+    repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder))?;
 
     Ok(())
 }

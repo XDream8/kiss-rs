@@ -16,8 +16,11 @@ use shared_lib::iter;
 
 use search_lib::{pkg_find_path, pkg_find_version};
 
-use shared_lib::globals::{get_repo_dir, get_repo_name, Config};
-use shared_lib::{is_symlink, mkcd, read_sources, remove_chars_after_last, tmp_file};
+use shared_lib::globals::Config;
+use shared_lib::{
+    get_current_working_dir, get_directory_name, is_symlink, mkcd, read_sources,
+    remove_chars_after_last, tmp_file,
+};
 
 // tar
 use std::fs;
@@ -244,18 +247,18 @@ pub fn pkg_source_resolve(
 }
 
 pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
-    let repo_name: String = if !pkg.is_empty() {
-        pkg.to_string()
-    } else {
-        get_repo_name()
-    };
     let repo_dir: String = if !pkg.is_empty() {
         pkg_find_path(config, pkg, None)
             .unwrap_or_else(|| die!(pkg.to_owned() + ":", "Failed to get package path"))
             .to_string_lossy()
             .to_string()
     } else {
-        get_repo_dir()
+        get_current_working_dir()
+    };
+    let repo_name: String = if !pkg.is_empty() {
+        pkg.to_string()
+    } else {
+        get_directory_name(&repo_dir).to_string()
     };
 
     let sources_file: PathBuf = Path::new(repo_dir.as_str()).join("sources");
@@ -291,7 +294,7 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
                     die!("Failed to fetch repository:", err);
                 }
             } else if res.starts_with("https://") || res.starts_with("http://") {
-                if let Err(err) = pkg_source_url(config, &res, Path::new(&des)) {
+                if let Err(err) = pkg_source_url(config, &repo_name, &res, Path::new(&des)) {
                     die!("Failed to download file:", err);
                 }
             }
@@ -384,11 +387,10 @@ pub fn pkg_source_git(
 // Function to download files
 pub fn pkg_source_url(
     config: &Config,
+    repo_name: &String,
     download_source: &str,
     download_dest: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let repo_name: String = get_repo_name();
-
     log!(&repo_name, "Downloading:", download_source);
 
     let response: Response = HTTP_CLIENT.get(download_source).call()?;

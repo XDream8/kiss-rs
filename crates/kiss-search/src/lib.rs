@@ -1,8 +1,7 @@
 // global variables
-use shared_lib::{get_directory_name, read_a_dir_and_sort, read_a_files_lines};
+use shared_lib::{read_a_dir_and_sort, read_a_files_lines};
 
 use shared_lib::globals::Config;
-use shared_lib::globals::{get_repo_name, set_repo_dir, set_repo_name};
 
 // logging
 use shared_lib::die;
@@ -44,17 +43,6 @@ pub fn pkg_find_version(
         .collect();
 
     if !found_packages.is_empty() {
-        // Set repository directory and name
-        let binding = &found_packages[0].to_string_lossy();
-        let directory_name = get_directory_name(binding);
-
-        set_repo_dir(binding.to_string());
-        set_repo_name(directory_name.to_owned());
-
-        if get_repo_name().is_empty() {
-            die!(binding, "Unable to get directory name");
-        }
-
         extract_package_version(&found_packages[0])
     } else {
         None
@@ -82,20 +70,6 @@ pub fn pkg_find_path(config: &Config, name: &str, search_path: Option<&String>) 
         .collect();
 
     if !found_packages.is_empty() {
-        // Set repository directory and name
-        let binding = &found_packages[0].to_string_lossy();
-        let directory_name = get_directory_name(binding);
-
-        set_repo_dir(binding.to_string());
-        set_repo_name(directory_name.to_owned());
-
-        if get_repo_name().is_empty() {
-            die!(
-                &found_packages[0].to_string_lossy(),
-                "Unable to get directory name"
-            );
-        }
-
         found_packages.first().cloned()
     } else {
         None

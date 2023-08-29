@@ -273,6 +273,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "faster-hex",
+ "kiss-search",
  "rayon",
  "seahorse",
  "shared_lib",

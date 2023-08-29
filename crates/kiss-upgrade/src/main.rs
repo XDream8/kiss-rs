@@ -53,7 +53,7 @@ fn pkg_upgrade(config: &Config, dependencies: &mut Dependencies) {
     let installed_packages: Vec<PathBuf> =
         read_a_dir_and_sort(config.sys_db.to_string_lossy().to_string(), false, &[]);
 
-    let packages: Vec<(String, String, String)> = installed_packages
+    let packages: Vec<String> = installed_packages
         .iter()
         .filter_map(|path| {
             let path_str: String = path.to_string_lossy().to_string();
@@ -71,19 +71,15 @@ fn pkg_upgrade(config: &Config, dependencies: &mut Dependencies) {
                 .unwrap_or_else(|| die!(pkg_name.to_owned() + ":", "Failed to get version"));
 
             if old_ver != new_ver {
-                Some((pkg_name.to_owned(), old_ver, new_ver))
+                println!("{pkg_name} {old_ver} => {new_ver}");
+                Some(pkg_name.to_owned())
             } else {
                 None
             }
         })
         .collect();
 
-    // print
-    for (pkg, old_ver, new_ver) in &packages {
-        println!("{pkg} {old_ver} => {new_ver}");
-    }
-
-    if packages.iter().any(|(first, _, _)| first == "kiss") {
+    if packages.contains(&String::from("kiss")) {
         log!("Detected package manager update");
         log!("The package manager will be updated first");
 
@@ -95,11 +91,6 @@ fn pkg_upgrade(config: &Config, dependencies: &mut Dependencies) {
         log!("Re-run 'kiss-upgrade' to update your system");
         return;
     }
-
-    let packages: Vec<&str> = packages
-        .iter()
-        .map(|(pkg_name, _, _)| pkg_name.as_str())
-        .collect();
 
     if !packages.is_empty() {
         println!(

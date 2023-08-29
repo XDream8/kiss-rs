@@ -15,6 +15,7 @@ path = "src/lib.rs"
 [dependencies]
 shared_lib = { path = "../shared_lib" }
 source_lib = { path = "../source_lib"}
+kiss-search = { path = "../kiss-search" }
 ## cli
 seahorse = "2.1"
 ## threading

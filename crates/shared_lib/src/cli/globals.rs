@@ -1,8 +1,8 @@
 use seahorse::Context;
 
-use crate::{get_current_working_dir, get_directory_name, get_env_variable};
+use crate::get_env_variable;
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -235,36 +235,4 @@ pub fn set_config(c: &Context, handle_signals: bool) {
             signal(SIGTERM, handle_sigint as usize);
         }
     }
-}
-
-// REPO_NAME and REPO_DIR management
-pub static REPO_DIR: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(get_current_working_dir()));
-pub static REPO_NAME: Lazy<RwLock<String>> = Lazy::new(|| {
-    let repo_dir = get_repo_dir();
-    let result = if Path::new(&repo_dir).exists() {
-        get_directory_name(&repo_dir).to_owned()
-    } else {
-        String::new()
-    };
-    RwLock::new(result)
-});
-
-pub fn set_repo_name(new_value: String) {
-    let mut repo_name = REPO_NAME.write().unwrap();
-    *repo_name = new_value;
-}
-
-pub fn get_repo_name() -> String {
-    let repo_name = REPO_NAME.read().unwrap();
-    repo_name.clone()
-}
-
-pub fn set_repo_dir(new_value: String) {
-    let mut repo_dir = REPO_DIR.write().unwrap();
-    *repo_dir = new_value;
-}
-
-pub fn get_repo_dir() -> String {
-    let repo_dir = REPO_DIR.read().unwrap();
-    repo_dir.clone()
 }

@@ -1,20 +1,25 @@
-use shared_lib::globals::{get_repo_dir, get_repo_name};
-
+use shared_lib::get_directory_name;
 use shared_lib::globals::Config;
+use shared_lib::signal::pkg_clean;
 // logging
-use shared_lib::log;
+use shared_lib::{die, log};
 
 use checksum_lib::pkg_checksum_gen;
+use search_lib::pkg_find_path;
 use source_lib::pkg_source;
 
+use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 use std::path::Path;
-use std::fs::OpenOptions;
 
 pub fn pkg_checksum(config: &Config, package: &str) {
     pkg_source(config, package, true, false);
 
-    let repo_dir = get_repo_dir();
+    let repo_dir: String = pkg_find_path(config, package, None)
+        .unwrap_or_else(|| die!(package.to_owned() + ":", "Failed to get version"))
+        .to_string_lossy()
+        .to_string();
+    let repo_name: &str = get_directory_name(&repo_dir);
 
     if !Path::new(repo_dir.as_str()).join("sources").exists() {
         return;
@@ -47,8 +52,8 @@ pub fn pkg_checksum(config: &Config, package: &str) {
         // ensure all data is written to the file
         writer.flush().expect("Failed to write to checksums file");
 
-        log!(get_repo_name().as_str(), "Generated checksums");
+        log!(repo_name, "Generated checksums");
     } else {
-        log!(get_repo_name().as_str(), "No sources needing checksums");
+        log!(repo_name, "No sources needing checksums");
     }
 }

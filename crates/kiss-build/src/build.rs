@@ -3,13 +3,16 @@ use kiss_manifest::pkg_manifest;
 use search_lib::{pkg_cache, pkg_find_path};
 use source_lib::{pkg_source, pkg_source_resolve, pkg_source_tar, pkg_tar};
 
-use shared_lib::{copy_folder, mkcd, read_a_files_lines, remove_chars_after_last};
+use shared_lib::{
+    copy_folder, get_current_working_dir, get_directory_name, mkcd, read_a_files_lines,
+    remove_chars_after_last,
+};
 use shared_lib::{
     pkg_get_provides, prompt, read_sources, run_action, run_command, set_env_variable_if_undefined,
 };
 
 // manage global variables
-use shared_lib::globals::{get_repo_dir, get_repo_name, Config, Dependencies};
+use shared_lib::globals::{Config, Dependencies};
 
 // logging
 use shared_lib::signal::pkg_clean;
@@ -22,19 +25,19 @@ use std::path::{Path, PathBuf};
 // build
 use std::process::{Child, Command, ExitStatus, Stdio};
 
-pub fn pkg_extract(config: &Config, pkg: &str) {
+pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
     if config.debug || config.verbose {
         log!(pkg.to_owned() + ":", "Extracting sources");
     }
 
-    let sources_file: String = format!("{}/sources", get_repo_dir());
+    let sources_file: String = format!("{}/sources", repo_dir);
 
     let sources: Vec<(String, String)> =
         read_sources(sources_file.as_str()).expect("Failed to read sources file");
 
     for (source, dest) in sources.iter() {
         let (res, des): (String, String) =
-            pkg_source_resolve(config, pkg, get_repo_dir().as_str(), source, dest, false);
+            pkg_source_resolve(config, pkg, &repo_dir, source, dest, false);
 
         // temporary solution - need to find a better way
         let dest_path: PathBuf = config.mak_dir.join(pkg);
@@ -42,8 +45,6 @@ pub fn pkg_extract(config: &Config, pkg: &str) {
         if res != des {
             mkcd(dest_path.to_string_lossy().to_string());
         }
-
-        println!("{dest_path:?}");
 
         if res.contains("git+") {
             let dest_path = dest_path.join(dest);
@@ -76,7 +77,7 @@ fn is_matching_directory(path: &Path) -> bool {
 }
 
 // for stripping
-fn strip_files_recursive(directory: &Path) {
+fn strip_files_recursive(repo_name: &str, directory: &Path) {
     let entries = fs::read_dir(directory).expect("Failed to read directory");
 
     let lib_and_exec_args: Vec<&str> = vec!["-s", "-R", ".comment", "-R", ".note"];
@@ -88,7 +89,7 @@ fn strip_files_recursive(directory: &Path) {
         let file_path_string: String = file_path.to_string_lossy().to_string();
 
         if file_path.is_dir() {
-            strip_files_recursive(&file_path);
+            strip_files_recursive(repo_name, &file_path);
         } else if file_path.is_file() {
             if let Some(extension) = file_path.extension() {
                 if let Some(extension_str) = extension.to_str() {
@@ -117,7 +118,7 @@ fn strip_files_recursive(directory: &Path) {
                     .read_exact(&mut header)
                     .is_err()
                 {
-                    die!(get_repo_name().as_str(), "Failed to read file header");
+                    die!(repo_name, "Failed to read file header");
                 }
 
                 if header == [0x7f, 0x45, 0x4c, 0x46] {
@@ -156,7 +157,7 @@ fn pkg_strip(config: &Config, pkg: &str) {
         let real_file_path = Path::new(real_file.as_str());
 
         if real_file_path.is_dir() && is_matching_directory(real_file_path) {
-            strip_files_recursive(real_file_path);
+            strip_files_recursive(pkg, real_file_path);
         }
     }
 }
@@ -275,22 +276,26 @@ fn pkg_depends(
     }
 }
 
-pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages: Vec<&str>) {
+pub fn pkg_build_all<T>(config: &Config, dependencies: &mut Dependencies, packages: Vec<T>)
+where
+    T: AsRef<str> + std::clone::Clone + std::fmt::Display,
+{
     // find dependencies
     if !packages.is_empty() {
         for package in packages {
             pkg_depends(
                 config,
                 dependencies,
-                &package.to_owned(),
+                &package.to_string(),
                 true,
                 true,
                 String::new(),
             );
-            dependencies.explicit.push(package.to_owned());
+            dependencies.explicit.push(package.to_string());
         }
     } else {
-        let package = get_repo_name();
+        let current_dir: String = get_current_working_dir();
+        let package: &str = get_directory_name(&current_dir);
         pkg_depends(
             config,
             dependencies,
@@ -334,8 +339,9 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
         if pkg_cache(config, &pkg).is_some() {
             log!(pkg.to_owned() + ":", "Found pre-built binary");
             dependencies.normal.retain(|x| x != &pkg);
-            // pkg_install(pkg, true).expect("Failed to install package");
-            // run_action_as_root(vec!["install", pkg], true);
+            if let Err(err) = run_action("install", Some(&[&pkg])) {
+                die!("Failed to install package:", pkg, err);
+            }
         }
     }
 
@@ -347,9 +353,13 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
     // download and check sources
     for package in all_packages.clone() {
         pkg_source(config, package, false, true);
+        let repo_dir = pkg_find_path(config, package, None)
+            .unwrap_or_else(|| die!(package.to_owned() + ":", "Failed to get version"))
+            .to_string_lossy()
+            .to_string();
 
-        if Path::new(get_repo_dir().as_str()).join("sources").exists() {
-            pkg_verify(config, package, get_repo_dir());
+        if Path::new(&repo_dir).join("sources").exists() {
+            pkg_verify(config, package, repo_dir);
         }
     }
 
@@ -363,16 +373,16 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
         let build_status: String = format!("Building package ({}/{})", build_cur, package_count);
         log!(package.to_owned() + ":", build_status);
 
-        pkg_find_path(config, package, None)
-            .unwrap_or_else(|| die!(package.to_owned() + ":", "Failed to get version"));
-
-        let repo_dir: String = get_repo_dir();
+        let repo_dir: String = pkg_find_path(config, package, None)
+            .unwrap_or_else(|| die!(package.to_owned() + ":", "Failed to get version"))
+            .to_string_lossy()
+            .to_string();
 
         if Path::new(repo_dir.as_str()).join("sources").exists() {
-            pkg_extract(config, package);
+            pkg_extract(config, package, &repo_dir);
         }
 
-        pkg_build(config, package);
+        pkg_build(config, package, repo_dir);
         pkg_manifest(config, package, &config.pkg_dir);
         pkg_strip(config, package);
 
@@ -405,7 +415,7 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
     }
 }
 
-fn pkg_build(config: &Config, pkg: &str) {
+fn pkg_build(config: &Config, pkg: &str, repo_dir: String) {
     mkcd(format!("{}/{}", config.mak_dir.to_string_lossy(), pkg).as_str());
 
     log!(pkg.to_owned() + ":", "Starting build");
@@ -416,7 +426,7 @@ fn pkg_build(config: &Config, pkg: &str) {
     set_env_variable_if_undefined("NM", "nm");
     set_env_variable_if_undefined("RANLIB", "ranlib");
 
-    let executable: String = format!("{}/build", get_repo_dir());
+    let executable: String = format!("{}/build", repo_dir);
     let install_dir: PathBuf = config.pkg_dir.join(pkg);
 
     let mut child: Child = Command::new(executable)
@@ -441,10 +451,8 @@ fn pkg_build(config: &Config, pkg: &str) {
 
         mkcd(pkg_db_dir.as_str());
 
-        if let Err(err) = copy_folder(
-            Path::new(get_repo_dir().as_str()),
-            Path::new(pkg_db_dir.as_str()),
-        ) {
+        if let Err(err) = copy_folder(Path::new(repo_dir.as_str()), Path::new(pkg_db_dir.as_str()))
+        {
             die!("Failed to copy repository files:", err)
         }
 

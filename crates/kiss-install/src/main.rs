@@ -10,9 +10,9 @@ use std::process::exit;
 use std::sync::RwLockReadGuard;
 
 use shared_lib::signal::pkg_clean;
+use shared_lib::{get_current_working_dir, get_directory_name};
 
 use self::install::pkg_install;
-use shared_lib::globals::get_repo_name;
 
 fn main() {
     // cli
@@ -52,6 +52,8 @@ fn action(c: &Context) {
             pkg_install(&config, package).expect("Failed to install package");
         }
     } else {
-        pkg_install(&config, get_repo_name().as_str()).expect("Failed to install package");
+        let current_dir: String = get_current_working_dir();
+        let package: &str = get_directory_name(&current_dir);
+        pkg_install(&config, package).expect("Failed to install package");
     }
 }

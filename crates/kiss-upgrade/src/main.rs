@@ -98,7 +98,7 @@ fn pkg_upgrade(config: &Config, dependencies: &mut Dependencies) {
 
     let packages: Vec<&str> = packages
         .iter()
-        .filter_map(|(pkg_name, _, _)| Some(pkg_name.as_str()))
+        .map(|(pkg_name, _, _)| pkg_name.as_str())
         .collect();
 
     if !packages.is_empty() {

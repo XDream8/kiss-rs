@@ -1,18 +1,15 @@
-mod build;
-
 // for cli-args
 use seahorse::{App, Context};
 use shared_lib::flags::*;
 use shared_lib::get_args;
 use shared_lib::globals::{get_config, set_config, Config, Dependencies, DEPENDENCIES};
-use shared_lib::jobs_flag;
 use std::env;
 use std::process::exit;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
-use shared_lib::signal::{create_tmp_dirs, pkg_clean};
+use shared_lib::signal::pkg_clean;
 
-use self::build::pkg_build_all;
+use build_lib::pkg_build_all;
 
 fn main() {
     // cli
@@ -34,11 +31,9 @@ fn main() {
         .flag(kiss_path_flag())
         .flag(kiss_root_flag())
         .flag(kiss_tmp_dir_flag())
-        .flag(jobs_flag!())
+        .flag(jobs_flag())
         .action(action);
 
-    // create tmp dirs
-    create_tmp_dirs();
     app.run(args);
     // Handle exit signal
     exit(pkg_clean(0));

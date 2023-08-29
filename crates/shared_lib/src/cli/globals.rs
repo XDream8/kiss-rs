@@ -8,12 +8,19 @@ use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 // signal handling
-use crate::signal::handle_sigint;
+use crate::signal::{create_tmp_dirs, handle_sigint};
 use libc::{signal, SIGINT, SIGTERM};
 
 // for http client
 // use std::time::Duration;
 // use ureq::{Agent, AgentBuilder};
+
+// define a trait to hold deps
+#[derive(Debug, Default, Clone)]
+pub struct Dependencies {
+    pub normal: Vec<String>,
+    pub explicit: Vec<String>,
+}
 
 // define a struct to hold shared variables
 #[derive(Debug, Default, Clone)]
@@ -103,9 +110,6 @@ impl Config {
                 path.push(repo.to_owned());
             }
 
-            // add installed packages directory
-            path.push(sys_db.to_string_lossy().to_string());
-
             // remove duplicates and empty entries from paths
             let mut set: HashSet<String> = HashSet::new();
             path.retain(|x| !x.is_empty() && set.insert(x.clone()));
@@ -145,29 +149,13 @@ impl Config {
     }
 }
 
-// define a trait to hold deps
-#[derive(Debug, Default, Clone)]
-pub struct Dependencies {
-    pub normal: Vec<String>,
-    pub explicit: Vec<String>,
-}
-
-impl Dependencies {
-    pub fn new() -> Self {
-        Dependencies {
-            normal: Vec::new(),
-            explicit: Vec::new(),
-        }
-    }
-}
-
 // FLAG_CONTEXT management
 pub static FLAG_CONTEXT: Lazy<Arc<RwLock<Config>>> =
     Lazy::new(|| Arc::new(RwLock::new(Config::new())));
 
 // Dependencies management
 pub static DEPENDENCIES: Lazy<Arc<RwLock<Dependencies>>> =
-    Lazy::new(|| Arc::new(RwLock::new(Dependencies::new())));
+    Lazy::new(|| Arc::new(RwLock::new(Dependencies::default())));
 
 pub fn get_config() -> RwLockReadGuard<'static, Config> {
     FLAG_CONTEXT.read().unwrap()
@@ -183,14 +171,6 @@ pub fn set_config(c: &Context, handle_signals: bool) {
                 .num_threads(jobs as usize)
                 .build_global()
                 .expect("Failed to build thread pool");
-        }
-    }
-
-    // setup signal handling
-    if handle_signals {
-        unsafe {
-            signal(SIGINT, handle_sigint as usize);
-            signal(SIGTERM, handle_sigint as usize);
         }
     }
 
@@ -236,9 +216,6 @@ pub fn set_config(c: &Context, handle_signals: bool) {
                 path.push(repo.to_owned());
             }
 
-            // add installed packages directory
-            path.push(context.sys_db.to_string_lossy().to_string());
-
             // remove duplicates and empty entries from paths
             let mut set: HashSet<String> = HashSet::new();
             path.retain(|x| !x.is_empty() && set.insert(x.clone()));
@@ -247,6 +224,16 @@ pub fn set_config(c: &Context, handle_signals: bool) {
         };
 
         context.kiss_path = kiss_path;
+    }
+
+    // setup signal handling
+    if handle_signals {
+        // create tmp dirs
+        create_tmp_dirs(&context);
+        unsafe {
+            signal(SIGINT, handle_sigint as usize);
+            signal(SIGTERM, handle_sigint as usize);
+        }
     }
 }
 

@@ -1,10 +1,12 @@
 use checksum_lib::{get_file_hash, pkg_verify};
 use kiss_manifest::pkg_manifest;
-use search_lib::{pkg_cache, pkg_find, pkg_find_version};
+use search_lib::{pkg_cache, pkg_find_path};
 use source_lib::{pkg_source, pkg_source_resolve, pkg_source_tar, pkg_tar};
 
 use shared_lib::{copy_folder, mkcd, read_a_files_lines, remove_chars_after_last};
-use shared_lib::{prompt, read_sources, run_command, set_env_variable_if_undefined};
+use shared_lib::{
+    pkg_get_provides, prompt, read_sources, run_action, run_command, set_env_variable_if_undefined,
+};
 
 // manage global variables
 use shared_lib::globals::{get_repo_dir, get_repo_name, Config, Dependencies};
@@ -12,13 +14,6 @@ use shared_lib::globals::{get_repo_dir, get_repo_name, Config, Dependencies};
 // logging
 use shared_lib::signal::pkg_clean;
 use shared_lib::{die, log};
-
-use build_lib::pkg_get_provides;
-
-// thread
-// #[cfg(feature = "threading")]
-// use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-// use shared_lib::iter;
 
 // std
 use std::fs::{self, File};
@@ -38,31 +33,28 @@ pub fn pkg_extract(config: &Config, pkg: &str) {
         read_sources(sources_file.as_str()).expect("Failed to read sources file");
 
     for (source, dest) in sources.iter() {
-        let source_clone = source.clone();
+        let (res, des): (String, String) =
+            pkg_source_resolve(config, pkg, get_repo_dir().as_str(), source, dest, false);
 
-        let (res, des): (String, String) = pkg_source_resolve(
-            config,
-            pkg,
-            get_repo_dir().as_str(),
-            source_clone,
-            dest.clone(),
-            false,
-        );
-
-        let dest_path: PathBuf = config.mak_dir.join(pkg).join(dest);
+        // temporary solution - need to find a better way
+        let dest_path: PathBuf = config.mak_dir.join(pkg);
         // Create the source's directories if not null.
-        if !des.is_empty() {
+        if res != des {
             mkcd(dest_path.to_string_lossy().to_string());
         }
 
+        println!("{dest_path:?}");
+
         if res.contains("git+") {
+            let dest_path = dest_path.join(dest);
             copy_folder(Path::new(des.as_str()), dest_path.as_path())
                 .expect("Failed to copy git source");
-        } else if res.contains(".tar") {
-            pkg_source_tar(res, true);
+        } else if des.contains(".tar.") {
+            pkg_source_tar(res, &dest_path, true);
         } else {
             let file_name = Path::new(res.as_str()).file_name().unwrap();
             let dest_path: PathBuf = dest_path.join(file_name);
+            // println!("{dest_path:?}");
             fs::copy(res.clone(), &dest_path).expect("Failed to copy file");
         }
     }
@@ -84,7 +76,7 @@ fn is_matching_directory(path: &Path) -> bool {
 }
 
 // for stripping
-pub fn strip_files_recursive(directory: &Path) {
+fn strip_files_recursive(directory: &Path) {
     let entries = fs::read_dir(directory).expect("Failed to read directory");
 
     let lib_and_exec_args: Vec<&str> = vec!["-s", "-R", ".comment", "-R", ".note"];
@@ -141,7 +133,7 @@ pub fn strip_files_recursive(directory: &Path) {
     }
 }
 
-pub fn pkg_strip(config: &Config, pkg: &str) {
+fn pkg_strip(config: &Config, pkg: &str) {
     // Strip package binaries and libraries. This saves space on the system as
     // well as on the tarballs we ship for installation.
     if config.mak_dir.join(pkg).join("nostrip").exists() || !config.strip {
@@ -233,7 +225,7 @@ fn pkg_etcsums(config: &Config, pkg: &str) {
 // the method we use to store deps and explicit deps is different from original kiss pm.
 // we only store implicit deps in DEPS global var and explicit deps in EXPLICIT global var
 #[inline(always)]
-pub fn pkg_depends(
+fn pkg_depends(
     config: &Config,
     dependencies: &mut Dependencies,
     pkg: &String,
@@ -244,9 +236,7 @@ pub fn pkg_depends(
     // check if user defined a replacement
     let pkg: &String = &pkg_get_provides(pkg, &config.provides_db).unwrap_or(pkg.to_owned());
     // since pkg_find function sets REPO_DIR and REPO_NAME, run it first
-    let pac: String = pkg_find(config, pkg, false, false, false);
-
-    let repo_dir: String = get_repo_dir();
+    let repo_dir: PathBuf = pkg_find_path(config, pkg, None).unwrap_or(PathBuf::new());
 
     // Resolve all dependencies and generate an ordered list. The deepest
     // dependencies are listed first and then the parents in reverse order.
@@ -258,9 +248,8 @@ pub fn pkg_depends(
         return;
     }
 
-    if !pac.is_empty() || Path::new(&repo_dir).join("depends").exists() {
-        let repo_dir = get_repo_dir();
-        let depends: Vec<String> = read_a_files_lines(format!("{}/depends", repo_dir)).unwrap();
+    if !repo_dir.exists() || repo_dir.join("depends").exists() {
+        let depends: Vec<String> = read_a_files_lines(repo_dir.join("depends")).unwrap();
         for dependency in depends {
             let mut dep = dependency.clone();
             if dependency.starts_with('#') {
@@ -374,7 +363,8 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
         let build_status: String = format!("Building package ({}/{})", build_cur, package_count);
         log!(package.to_owned() + ":", build_status);
 
-        pkg_find_version(config, package, false);
+        pkg_find_path(config, package, None)
+            .unwrap_or_else(|| die!(package.to_owned() + ":", "Failed to get version"));
 
         let repo_dir: String = get_repo_dir();
 
@@ -396,6 +386,9 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
             );
             // pkg_install(pkg, true).expect("Failed to install package");
             //     run_action_as_root(vec!["install", package], true);
+            if let Err(err) = run_action("install", Some(&[package])) {
+                die!("Failed to install package:", package, err);
+            }
         }
     }
 
@@ -406,11 +399,13 @@ pub fn pkg_build_all(config: &Config, dependencies: &mut Dependencies, packages:
             "Install built packages? [{}]",
             dependencies.explicit.join(" ")
         )));
-        // run_action_as_root(action, true);
+        if let Err(err) = run_action("install", None) {
+            die!("Failed to install: {}", err);
+        }
     }
 }
 
-pub fn pkg_build(config: &Config, pkg: &str) {
+fn pkg_build(config: &Config, pkg: &str) {
     mkcd(format!("{}/{}", config.mak_dir.to_string_lossy(), pkg).as_str());
 
     log!(pkg.to_owned() + ":", "Starting build");

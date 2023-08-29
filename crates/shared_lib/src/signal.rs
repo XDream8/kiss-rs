@@ -9,9 +9,7 @@ pub extern "C" fn handle_sigint(_signal: libc::c_int) {
     process::exit(pkg_clean(0));
 }
 
-pub fn create_tmp_dirs() -> i32 {
-    let config: RwLockReadGuard<'static, Config> = get_config();
-
+pub fn create_tmp_dirs(config: &Config) -> i32 {
     let dirs: Vec<&PathBuf> = vec![
         &config.sources_dir,
         &config.log_dir,

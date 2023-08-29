@@ -2,15 +2,14 @@ mod install;
 
 // for cli-args
 use seahorse::{App, Context};
+use shared_lib::flags::*;
+use shared_lib::get_args;
+use shared_lib::globals::{get_config, set_config, Config};
 use std::env;
 use std::process::exit;
-use shared_lib::get_args;
-use shared_lib::globals::{Config, get_config, set_config};
-use shared_lib::flags::*;
-use shared_lib::jobs_flag;
 use std::sync::RwLockReadGuard;
 
-use shared_lib::signal::{create_tmp_dirs, pkg_clean};
+use shared_lib::signal::pkg_clean;
 
 use self::install::pkg_install;
 use shared_lib::globals::get_repo_name;
@@ -34,11 +33,9 @@ fn main() {
         .flag(kiss_path_flag())
         .flag(kiss_root_flag())
         .flag(kiss_tmp_dir_flag())
-        .flag(jobs_flag!())
+        .flag(jobs_flag())
         .action(action);
 
-    // create tmp dirs
-    create_tmp_dirs();
     app.run(args);
     // Handle exit signal
     exit(pkg_clean(0));

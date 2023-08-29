@@ -1,7 +1,7 @@
-use build_lib::pkg_get_provides;
 use checksum_lib::get_file_hash;
 use kiss_manifest::{pkg_manifest, pkg_manifest_validate};
 use search_lib::pkg_cache;
+use shared_lib::pkg_get_provides;
 use source_lib::pkg_source_tar;
 
 use shared_lib::globals::Config;
@@ -445,7 +445,7 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
     mkcd(extract_dir.to_str().unwrap_or(""));
 
     // extract to current dir
-    pkg_source_tar(tar_file.clone(), false);
+    pkg_source_tar(tar_file.clone(), &extract_dir, false);
 
     let manifest_path: PathBuf = extract_dir
         .join(&config.pkg_db)

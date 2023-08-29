@@ -1,7 +1,7 @@
 use seahorse::{App, Context, Flag, FlagType};
+use shared_lib::flags::jobs_flag;
 use shared_lib::get_args;
 use shared_lib::globals::{get_config, set_config, Config};
-use shared_lib::jobs_flag;
 use std::env;
 use std::sync::RwLockReadGuard;
 
@@ -29,13 +29,13 @@ fn main() {
                 .description("add version parameter to end of the package queries")
                 .alias("v"),
         )
-        .flag(jobs_flag!())
+        .flag(jobs_flag())
         .action(list_action);
 
     app.run(args);
 }
 
-pub fn list_action(c: &Context) {
+fn list_action(c: &Context) {
     set_config(c, false);
 
     let version_param: bool = c.bool_flag("version");

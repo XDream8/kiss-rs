@@ -1,0 +1,16 @@
+[package]
+name = "kiss-upgrade"
+version = "0.1.0"
+edition = "2021"
+authors = ["XDream8 <WolfsDream@proton.me>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://codeberg.org/XDream8/kiss-rs"
+description = "Update the system"
+
+[dependencies]
+shared_lib = { path = "../shared_lib" }
+kiss-build = { path = "../kiss-build" }
+kiss-search = { path = "../kiss-search" }
+## cli
+seahorse = "2.1"

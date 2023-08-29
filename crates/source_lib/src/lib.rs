@@ -14,7 +14,7 @@ use shared_lib::{die, log};
 use rayon::iter::ParallelIterator;
 use shared_lib::iter;
 
-use search_lib::{pkg_find, pkg_find_version};
+use search_lib::{pkg_find_path, pkg_find_version};
 
 use shared_lib::globals::{get_repo_dir, get_repo_name, Config};
 use shared_lib::{is_symlink, mkcd, read_sources, remove_chars_after_last, tmp_file};
@@ -48,14 +48,124 @@ pub static HTTP_CLIENT: Lazy<Agent> = Lazy::new(|| {
         .build()
 });
 
+// get root directories of repositories and return them as a vector
+pub fn get_repositories(repo_path: &Vec<String>) -> Vec<String> {
+    let mut repositories: Vec<String> = Vec::new();
+
+    for repository in repo_path {
+        let path: &Path = Path::new(&repository);
+        match Repository::open(path) {
+            Ok(_) => {
+                let path_str: String = path.to_string_lossy().to_string();
+                if !repositories.contains(&path_str) && path.join(".git").exists() {
+                    repositories.push(path_str)
+                }
+            }
+            Err(_) => {
+                let parent: &Path = path.parent().unwrap();
+                let parent_str: String = parent.to_string_lossy().to_string();
+                if !repositories.contains(&parent_str) && parent.join(".git").exists() {
+                    repositories.push(parent_str)
+                }
+            }
+        }
+    }
+
+    repositories
+}
+
+pub fn pkg_update_repo(repo_path: &str) -> Result<(), git2::Error> {
+    let repository: Repository = Repository::open(repo_path)?;
+
+    let cb = setup_callbacks();
+    let mut remote = repository
+        .find_remote("origin")
+        .or_else(|_| repository.remote_anonymous("origin"))?;
+
+    let mut fetch_options = FetchOptions::new();
+    fetch_options.remote_callbacks(cb);
+    remote.fetch(&["origin"], Some(&mut fetch_options), None)?;
+
+    {
+        // If there are local objects (we got a thin pack), then tell the user
+        // how many objects we saved from having to cross the network.
+        let stats = remote.stats();
+        if stats.local_objects() > 0 {
+            println!(
+                "\rReceived {}/{} objects in {} bytes (used {} local \
+		         objects)",
+                stats.indexed_objects(),
+                stats.total_objects(),
+                stats.received_bytes(),
+                stats.local_objects()
+            );
+        } else {
+            println!(
+                "\rReceived {}/{} objects in {} bytes",
+                stats.indexed_objects(),
+                stats.total_objects(),
+                stats.received_bytes()
+            );
+        }
+    }
+
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.force();
+
+    // checkout_repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder))?;
+    repository.checkout_head(Some(&mut checkout_builder))?;
+
+    Ok(())
+}
+
+fn setup_callbacks() -> RemoteCallbacks<'static> {
+    let mut cb = RemoteCallbacks::new();
+    // This callback gets called for each remote-tracking branch that gets
+    // updated. The message we output depends on whether it's a new one or an
+    // update.
+    cb.update_tips(|refname, a, b| {
+        if a.is_zero() {
+            println!("[new]     {:20} {}", b, refname);
+        } else {
+            println!("[updated] {:10}..{:10} {}", a, b, refname);
+        }
+        true
+    });
+
+    // Here we show processed and total objects in the pack and the amount of
+    // received data. Most frontends will probably want to show a percentage and
+    // the download rate.
+    cb.transfer_progress(|stats| {
+        if stats.received_objects() == stats.total_objects() {
+            print!(
+                "Resolving deltas {}/{}\r",
+                stats.indexed_deltas(),
+                stats.total_deltas()
+            );
+        } else if stats.total_objects() > 0 {
+            print!(
+                "Received {}/{} objects ({}) in {} bytes\r",
+                stats.received_objects(),
+                stats.total_objects(),
+                stats.indexed_objects(),
+                stats.received_bytes()
+            );
+        }
+        io::stdout().flush().unwrap();
+        true
+    });
+
+    cb
+}
+
 // Given a line of input from the sources file, return an absolute
 // path to the source if it already exists, error if not.
 pub fn pkg_source_resolve(
     config: &Config,
     package_name: &str,
     repo_dir: &str,
-    source: String,
-    dest: String,
+    source: &String,
+    dest: &String,
     print: bool,
 ) -> (String, String) {
     let source_parts: Vec<String> = source.split('/').map(|e| e.to_owned()).collect();
@@ -71,7 +181,7 @@ pub fn pkg_source_resolve(
         if !dest.is_empty() {
             format!("{}/", dest)
         } else {
-            dest
+            dest.to_string()
         },
         if !repo_name.is_empty() {
             if let Some(index) = repo_name.find('#') {
@@ -117,8 +227,8 @@ pub fn pkg_source_resolve(
             (source.clone(), source)
         }
         // Local absolute file
-        _ if Path::new("/").join(source.trim_end_matches('/')).exists() => {
-            let source = format!("/{}", source.trim_end_matches('/'));
+        _ if Path::new("/").join(source.trim_start_matches('/')).exists() => {
+            let source = format!("/{}", source.trim_start_matches('/'));
             (source.clone(), source)
         }
         _ => (String::new(), String::new()),
@@ -140,7 +250,10 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
         get_repo_name()
     };
     let repo_dir: String = if !pkg.is_empty() {
-        pkg_find(config, pkg, false, false, false)
+        pkg_find_path(config, pkg, None)
+            .unwrap_or_else(|| die!(pkg.to_owned() + ":", "Failed to get package path"))
+            .to_string_lossy()
+            .to_string()
     } else {
         get_repo_dir()
     };
@@ -164,8 +277,8 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
             config,
             repo_name.as_str(),
             repo_dir.as_str(),
-            source.clone(),
-            dest.clone(),
+            source,
+            dest,
             print,
         );
 
@@ -174,7 +287,7 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
         // if it is a local source both res and des are set to the same value
         if res != des {
             if !skip_git && res.starts_with("git+") {
-                if let Err(err) = pkg_source_git(&repo_name, res.as_str(), des.as_str()) {
+                if let Err(err) = pkg_source_git(&repo_name, res.as_str(), des.as_str(), true) {
                     die!("Failed to fetch repository:", err);
                 }
             } else if res.starts_with("https://") || res.starts_with("http://") {
@@ -188,58 +301,30 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
 
 // Experimental Function to clone git repos
 // https://github.com/rust-lang/git2-rs/blob/master/examples/fetch.rs
-pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(), git2::Error> {
-    let repo = match Repository::open(des) {
+pub fn pkg_source_git(
+    package_name: &str,
+    source: &str,
+    des: &str,
+    log: bool,
+) -> Result<(), git2::Error> {
+    let repo: Repository = match Repository::open(des) {
         Ok(repo) => repo,
         Err(_) => Repository::init(des)?,
     };
-    let remote = if !source.is_empty() {
+    let remote: &str = if !source.is_empty() {
         source.trim_start_matches("git+")
     } else {
         "origin"
     };
 
     // Figure out whether it's a named remote or a URL
-    log!(package_name, "Checking out:", remote);
-    let mut cb = RemoteCallbacks::new();
+    if log {
+        log!(package_name, "Checking out:", remote);
+    }
+    let cb = setup_callbacks();
     let mut remote = repo
         .find_remote(remote)
         .or_else(|_| repo.remote_anonymous(remote))?;
-
-    // This callback gets called for each remote-tracking branch that gets
-    // updated. The message we output depends on whether it's a new one or an
-    // update.
-    cb.update_tips(|refname, a, b| {
-        if a.is_zero() {
-            println!("[new]     {:20} {}", b, refname);
-        } else {
-            println!("[updated] {:10}..{:10} {}", a, b, refname);
-        }
-        true
-    });
-
-    // Here we show processed and total objects in the pack and the amount of
-    // received data. Most frontends will probably want to show a percentage and
-    // the download rate.
-    cb.transfer_progress(|stats| {
-        if stats.received_objects() == stats.total_objects() {
-            print!(
-                "Resolving deltas {}/{}\r",
-                stats.indexed_deltas(),
-                stats.total_deltas()
-            );
-        } else if stats.total_objects() > 0 {
-            print!(
-                "Received {}/{} objects ({}) in {} bytes\r",
-                stats.received_objects(),
-                stats.total_objects(),
-                stats.indexed_objects(),
-                stats.received_bytes()
-            );
-        }
-        io::stdout().flush().unwrap();
-        true
-    });
 
     // Download the packfile and index it. This function updates the amount of
     // received data and the indexer stats which lets you inform the user about
@@ -283,7 +368,7 @@ pub fn pkg_source_git(package_name: &str, source: &str, des: &str) -> Result<(),
     remote.update_tips(None, true, AutotagOption::Unspecified, None)?;
 
     // checkout fetched content
-    let checkout_repo = Repository::open(des)?;
+    let checkout_repo: Repository = Repository::open(des)?;
     // let reference = checkout_repo.find_reference("FETCH_HEAD")?;
     // let commit = reference.peel_to_commit()?;
     // force checkout
@@ -387,7 +472,7 @@ pub fn add_dirs_to_tar_recursive<W: Write>(
         let rel_file_path: &Path = entry_path.strip_prefix(dir)?;
 
         // file_type.is_symlink() follows symlink and gives wrong results
-        if is_symlink(&entry_path) {
+        if entry_path.is_symlink() || is_symlink(&entry_path) {
             // If it's a symlink, get the symlink target as a String
             let symlink_target: PathBuf = entry_path.read_link()?;
             let symlink_target_str: &str = symlink_target
@@ -450,7 +535,8 @@ pub fn create_tar_archive(
 pub fn pkg_tar(config: &Config, pkg: &str) {
     log!(pkg, "Creating tarball");
 
-    let pkg_ver: String = pkg_find_version(config, pkg, false);
+    let pkg_ver: String = pkg_find_version(config, pkg, None)
+        .unwrap_or_else(|| die!(pkg.to_owned() + ":", "Failed to get version"));
     let tar_file: String = format!(
         "{}/{}@{}.tar.{}",
         config.bin_dir.to_string_lossy(),
@@ -469,7 +555,7 @@ pub fn pkg_tar(config: &Config, pkg: &str) {
 }
 
 // for extracting
-pub fn pkg_source_tar(res: String, no_leading_dir: bool) {
+pub fn pkg_source_tar(res: String, dest_path: &Path, no_leading_dir: bool) {
     let file: File = File::open(&res).expect("Failed to open tar file");
     let extension: Option<&str> = Path::new(res.as_str())
         .extension()
@@ -497,19 +583,18 @@ pub fn pkg_source_tar(res: String, no_leading_dir: bool) {
         let mut entry = entry.unwrap();
         let path = entry.path().unwrap();
 
-        let mut dest_path: PathBuf = Path::new(".").to_path_buf();
         // remove first level directory from dest
-        if !no_leading_dir {
-            dest_path = dest_path.join(path);
+        let dest_path: PathBuf = if !no_leading_dir {
+            dest_path.join(path)
         } else {
-            dest_path = dest_path.join(
+            dest_path.join(
                 path.components()
                     .skip(1)
                     .collect::<std::path::PathBuf>()
                     .to_string_lossy()
                     .to_string(),
-            );
-        }
+            )
+        };
 
         if let Err(err) = entry.unpack(dest_path) {
             eprintln!("Failed to extract file: {}", err);

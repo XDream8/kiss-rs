@@ -4,14 +4,7 @@ cargo-features = ["profile-rustflags"]
 resolver = "2"
 members = [
   "crates/kiss",
-  "crates/kiss-build",
-  "crates/kiss-checksum",
-  "crates/kiss-download",
-  "crates/kiss-install",
-  "crates/kiss-list",
-  "crates/kiss-manifest",
-  "crates/kiss-provides",
-  "crates/kiss-search",
+  "crates/kiss-*",
 ]
 
 [profile.release]

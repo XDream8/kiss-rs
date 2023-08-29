@@ -2,11 +2,10 @@ mod checksum;
 
 // for cli-args
 use seahorse::{App, Context};
-use std::env;
+use shared_lib::flags::{jobs_flag, kiss_path_flag};
 use shared_lib::get_args;
-use shared_lib::globals::{Config, get_config, set_config};
-use shared_lib::flags::kiss_path_flag;
-use shared_lib::jobs_flag;
+use shared_lib::globals::{get_config, set_config, Config};
+use std::env;
 use std::sync::RwLockReadGuard;
 
 use crate::checksum::pkg_checksum;
@@ -20,7 +19,7 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .usage(format!("{} [flags] <packages>", env!("CARGO_PKG_NAME")))
         .flag(kiss_path_flag())
-        .flag(jobs_flag!())
+        .flag(jobs_flag())
         .action(action);
 
     app.run(args);

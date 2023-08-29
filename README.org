@@ -14,27 +14,25 @@ unlike original kiss, kiss-rs commands are seperate binaries(like: kiss-build, k
 - [X] list
 - [X] provides
 - [X] search
+- [X] update
+- [X] upgrade
 
 ** TODO Fix Issues
-- [-] pkg_conflicts:
+- [ ] pkg_conflicts:
   - [ ] enable alternatives automatically if it is safe to do so.
   - [ ] fix bugs(like Found conflict: /var/db/kiss/installed/rust-analyzer/version)
-- [ ] pkg_{install, remove}_files:
-  - [ ] installing/removing some files fails
-- [X] log!/die!: improve macros
-- [-] pkg_depends:
+- [ ] pkg_depends:
   - [ ] add circular dependency checks
-  - [X] fix bugs(sometimes it does not detect some deps)
 - [ ] replace all .expect(s) with appropriate error management
 
 ** using provides system
-- open /var/db/kiss/provides file using your favourite editor:
+- you can use kiss-provides cli app:
+  #+begin_src shell
+    # kiss-provides rustup rust
+#+end_src
+- or open /var/db/kiss/provides file using your favourite editor:
     #+begin_src shell
     $ doas vim /var/db/kiss/provides
      #+end_src
-- syntax is like this: <replacement> <replaces>
+- syntax: <replacement> <package>
 - for example to replace rust with rustup: rustup rust
-- you can also use kiss-provides cli app:
-  #+begin_src shell
-    $ kiss-provides rustup rust
-#+end_src

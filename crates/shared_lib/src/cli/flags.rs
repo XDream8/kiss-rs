@@ -77,25 +77,15 @@ pub fn kiss_path_flag() -> Flag {
 }
 
 // this depends on threading feature
-#[cfg(feature = "threading")]
-#[macro_export]
-macro_rules! jobs_flag {
-    () => {{
-        use seahorse::{Flag, FlagType};
-        Flag::new("jobs", FlagType::Int)
-            .description(
-                "Number of cores that will be used for threaded operations(disabled by default)",
-            )
-            .alias("j")
-    }};
-}
-#[cfg(not(feature = "threading"))]
-#[macro_export]
-macro_rules! jobs_flag {
-    () => {{
-        use seahorse::{Flag, FlagType};
-        Flag::new("jobs", FlagType::Int)
-            .description("feature disabled at compile-time")
-            .alias("j")
-    }};
+pub fn jobs_flag() -> Flag {
+    #[cfg(feature = "threading")]
+    return Flag::new("jobs", FlagType::Int)
+        .description(
+            "Number of cores that will be used for threaded operations(disabled by default)",
+        )
+        .alias("j");
+    #[cfg(not(feature = "threading"))]
+    return Flag::new("jobs", FlagType::Int)
+        .description("feature disabled at compile-time")
+        .alias("j");
 }

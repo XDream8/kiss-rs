@@ -31,6 +31,28 @@ use rayon::iter::ParallelIterator;
 // Functions
 
 #[inline]
+pub fn pkg_get_provides(pkg: &str, provides_path: &Path) -> Result<String> {
+    let file: File = File::open(provides_path)?;
+    let reader: BufReader<File> = BufReader::new(file);
+
+    // find the replacement if there is any
+    for line in reader.lines() {
+        let line: &String = &line?;
+        if line.starts_with('#') {
+            continue;
+        };
+        let parts: Vec<&str> = line.split_whitespace().collect();
+
+        if parts.len() == 2 && parts[1] == pkg {
+            return Ok(parts[0].to_owned());
+        }
+    }
+
+    // if we did not find an replacement return pkg
+    Ok(pkg.to_owned())
+}
+
+#[inline]
 pub fn prompt(log_message: Option<String>) {
     if let Some(log_message) = log_message {
         log!(log_message);
@@ -287,89 +309,80 @@ pub fn is_symlink(path: &Path) -> bool {
     }
 }
 
-// run action as root
-// pub fn run_action_as_root(action: Vec<&str>, force: bool) {
-//     let command: String = if let Some(exe_path) = env::current_exe().ok() {
-//         exe_path.to_string_lossy().to_string()
-//     } else {
-//         "Failed to get the full path of the running executable.".to_string()
-//     };
-
-//     // Execute the command with elevated privileges using `as_user`.
-//     if let Err(_) = as_user(KISS_SU.to_string(), "root", command.as_str(), action, force) {
-//         // Handle exit signal
-//         process::exit(0);
-//     } else {
-//         process::exit(0);
-//     }
-
-// }
-
 pub fn am_owner(file_or_dir: &str) -> Result<bool> {
     let metadata = fs::metadata(file_or_dir)?;
     let current_uid = unsafe { getuid() };
     Ok(metadata.uid() == current_uid)
 }
 
-// fn as_user(cmd_su: String, user: &str, command: &str,args: Vec<&str>, force: bool) -> Result<()> {
-//     println!("Using '{}' (to become {})", cmd_su, user);
+// used by kiss-build to install deps and packages
+pub fn run_action(binary_name: &str, binary_args: Option<&[&str]>) -> Result<()> {
+    // Collect command line arguments
+    let args: Vec<String> = env::args().collect();
 
-//     // create args vector but don’t initialize
-//     let cmd_args: Vec<&str> = if cmd_su == "/usr/bin/su" {
-//         vec![user, "-c"]
-//     } else {
-//         vec!["-u", user, "--"]
-//     };
+    // Get the path to the current executable
+    let exe_path: PathBuf = env::current_exe()?;
 
-//     let mut child_cmd = Command::new(cmd_su.clone());
+    // Get the directory containing the executable
+    let exe_dir: &Path = exe_path.parent().ok_or(io::Error::new(
+        io::ErrorKind::Other,
+        "Failed to get the directory",
+    ))?;
 
-//     // Set the necessary environment variables for the child process.
-//     let env_vars = [
-//         "LOGNAME",
-//         "HOME",
-//         "XDG_CACHE_HOME",
-//         "KISS_CHOICE",
-//         "KISS_COMPRESS",
-//         "KISS_FORCE",
-//         "KISS_HOOK",
-//         "KISS_TMPDIR",
-//         "_KISS_LVL",
-//     ];
-//     for var in env_vars {
-//         if let Ok(val) = env::var(var) {
-//             child_cmd.env(var, val);
-//         }
-//     }
+    // Construct the binary path in the same directory as the wrapper
+    let binary_path_in_exe_dir: PathBuf = exe_dir.join(format!("kiss-{}", binary_name));
 
-//     if force {
-//         // first convert bool to u8. then convert it to string
-//         let force_string: String = (force as u8).to_string();
-//         child_cmd.env("KISS_FORCE", force_string);
-//     } else {
-//         child_cmd.env("KISS_FORCE", &*KISS_FORCE);
-//     }
-//     child_cmd.env("KISS_ROOT, &*KISS_ROOT);
-//     child_cmd.env("KISS_PATH", &*KISS_PATH.join(":"));
-//     child_cmd.env("KISS_PID", &*KISS_PID.to_string());
+    let binary_path: Option<PathBuf> = if binary_path_in_exe_dir.exists() {
+        Some(binary_path_in_exe_dir)
+    } else {
+        // If the binary is not found in the same directory as the wrapper, search the system PATH
+        env::var("PATH")
+            .expect("Failed to get PATH environment variable")
+            .split(':')
+            .find_map(|path| {
+                let path: String = path.to_string();
+                let binary_name: String = format!("kiss-{}", binary_name);
+                let binary_path: PathBuf = Path::new(&path).join(&binary_name);
+                if binary_path.exists() {
+                    Some(binary_path)
+                } else if Path::new(&path).exists() {
+                    let entries: Vec<_> = fs::read_dir(path).ok()?.collect();
 
-//     let mut child: Child = child_cmd
-//         .args(cmd_args)
-//         .arg(command)
-//         .args(args)
-//         .stdin(Stdio::inherit())
-//         .stdout(Stdio::inherit())
-//         .stderr(Stdio::inherit())
-//         .spawn()
-//         .expect("failed to execute child");
+                    entries.iter().find_map(|entry| {
+                        let entry = entry.as_ref().unwrap();
+                        let path: PathBuf = entry.path();
 
-//     let ecode: ExitStatus = child.wait().expect("failed to wait on child");
+                        if let Some(file_name) = path.file_name() {
+                            let file_name: String = file_name.to_string_lossy().into_owned();
 
-//     if ecode.success() {
-//         Ok(())
-//     } else {
-//         Err(io::Error::new(
-//             io::ErrorKind::Other,
-//             format!("Failed to execute '{}'", cmd_su),
-//         ))
-//     }
-// }
+                            if file_name.starts_with(&binary_name) {
+                                Some(path)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                } else {
+                    None
+                }
+            })
+    };
+
+    // execute command
+    if let Some(binary_path) = binary_path {
+        // Build the command to execute the binary
+        let mut command: Command = Command::new(binary_path);
+        // Pass all arguments except the first two (wrapper and binary name)
+        command.args(&args[2..]);
+        if let Some(binary_args) = binary_args {
+            command.args(binary_args);
+        }
+
+        // Execute the binary
+        command.status()?;
+    }
+
+    Ok(())
+}

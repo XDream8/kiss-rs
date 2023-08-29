@@ -24,14 +24,8 @@ pub fn pkg_checksum_gen(config: &Config, package_name: &str, repo_dir: &str) -> 
     let hashes: Vec<_> = iter!(sources)
         .filter_map(|(source, dest)| {
             if !source.is_empty() && !source.starts_with("git+") {
-                let (res, des) = pkg_source_resolve(
-                    config,
-                    package_name,
-                    repo_dir,
-                    source.clone(),
-                    dest.to_string(),
-                    false,
-                );
+                let (res, des) =
+                    pkg_source_resolve(config, package_name, repo_dir, source, dest, false);
 
                 // if it is a local source res equals to des
                 if res == des {

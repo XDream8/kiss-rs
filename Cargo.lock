@@ -294,7 +294,6 @@ dependencies = [
 name = "kiss-install"
 version = "0.1.0"
 dependencies = [
- "kiss-build",
  "kiss-checksum",
  "kiss-manifest",
  "kiss-search",
@@ -336,6 +335,25 @@ name = "kiss-search"
 version = "0.1.0"
 dependencies = [
  "rayon",
+ "seahorse",
+ "shared_lib",
+]
+
+[[package]]
+name = "kiss-update"
+version = "0.1.0"
+dependencies = [
+ "seahorse",
+ "shared_lib",
+ "source_lib",
+]
+
+[[package]]
+name = "kiss-upgrade"
+version = "0.1.0"
+dependencies = [
+ "kiss-build",
+ "kiss-search",
  "seahorse",
  "shared_lib",
 ]

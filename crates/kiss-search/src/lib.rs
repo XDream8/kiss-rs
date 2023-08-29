@@ -19,30 +19,92 @@ use std::path::{Path, PathBuf};
 // find and return only one package and version
 // this is primarily used by functions!
 // returns ’version_number-release’
-pub fn pkg_find_version(config: &Config, name: &str, recursive: bool) -> String {
-    let package: String = pkg_find(config, name, false, recursive, false);
-
-    if let Some(ver) = extract_package_version(&PathBuf::from(&package)) {
-        return ver;
-    }
-
-    name.to_owned()
-}
-
-pub fn pkg_find(
+pub fn pkg_find_version(
     config: &Config,
     name: &str,
-    version: bool,
-    recursive: bool,
-    print: bool,
-) -> String {
-    let kiss_path: Vec<String> = iter!(config.kiss_path)
-        .cloned()
-        .filter(|x| !print || x != &config.sys_db.to_string_lossy().to_string())
-        .collect();
+    search_path: Option<&String>,
+) -> Option<String> {
+    let kiss_path: Vec<&String> = if let Some(search_path) = search_path {
+        vec![search_path]
+    } else {
+        Vec::from_iter(config.kiss_path.iter())
+    };
 
     // Use Rayon to parallelize the iteration through kiss_path directories
     let found_packages: Vec<PathBuf> = iter!(kiss_path)
+        .flat_map(|path| read_a_dir_and_sort(path.as_str(), false, &[]))
+        .filter(|package| {
+            let package_name = match package.file_name() {
+                Some(file_name) => file_name.to_string_lossy(),
+                _ => std::borrow::Cow::Borrowed(""),
+            };
+
+            name == package_name
+        })
+        .collect();
+
+    if !found_packages.is_empty() {
+        // Set repository directory and name
+        let binding = &found_packages[0].to_string_lossy();
+        let directory_name = get_directory_name(binding);
+
+        set_repo_dir(binding.to_string());
+        set_repo_name(directory_name.to_owned());
+
+        if get_repo_name().is_empty() {
+            die!(binding, "Unable to get directory name");
+        }
+
+        extract_package_version(&found_packages[0])
+    } else {
+        None
+    }
+}
+
+pub fn pkg_find_path(config: &Config, name: &str, search_path: Option<&String>) -> Option<PathBuf> {
+    let kiss_path: Vec<&String> = if let Some(search_path) = search_path {
+        vec![search_path]
+    } else {
+        Vec::from_iter(config.kiss_path.iter())
+    };
+
+    // Use Rayon to parallelize the iteration through kiss_path directories
+    let found_packages: Vec<PathBuf> = iter!(kiss_path)
+        .flat_map(|path| read_a_dir_and_sort(path.as_str(), false, &[]))
+        .filter(|package| {
+            let package_name = match package.file_name() {
+                Some(file_name) => file_name.to_string_lossy(),
+                _ => std::borrow::Cow::Borrowed(""),
+            };
+
+            name == package_name
+        })
+        .collect();
+
+    if !found_packages.is_empty() {
+        // Set repository directory and name
+        let binding = &found_packages[0].to_string_lossy();
+        let directory_name = get_directory_name(binding);
+
+        set_repo_dir(binding.to_string());
+        set_repo_name(directory_name.to_owned());
+
+        if get_repo_name().is_empty() {
+            die!(
+                &found_packages[0].to_string_lossy(),
+                "Unable to get directory name"
+            );
+        }
+
+        found_packages.first().cloned()
+    } else {
+        None
+    }
+}
+
+pub fn pkg_find(config: &Config, name: &str, version: bool, recursive: bool) {
+    // Use Rayon to parallelize the iteration through kiss_path directories
+    let found_packages: Vec<PathBuf> = iter!(config.kiss_path)
         .flat_map(|path| read_a_dir_and_sort(path.as_str(), false, &[]))
         .filter(|package| {
             let package_name = match package.file_name() {
@@ -55,42 +117,18 @@ pub fn pkg_find(
         .collect();
 
     if !found_packages.is_empty() {
-        if print {
-            for package in &found_packages {
-                if version {
-                    if let Some(ver) = extract_package_version(package) {
-                        println!("{}:{}", package.to_string_lossy(), ver);
-                    } else {
-                        println!("{}", package.to_string_lossy());
-                    }
+        for package in &found_packages {
+            if version {
+                if let Some(ver) = extract_package_version(package) {
+                    println!("{}:{}", package.to_string_lossy(), ver);
                 } else {
                     println!("{}", package.to_string_lossy());
                 }
+            } else {
+                println!("{}", package.to_string_lossy());
             }
-        } else {
-            // Set repository directory and name
-            let binding = &found_packages[0].to_string_lossy();
-            let directory_name = get_directory_name(binding);
-
-            set_repo_dir(binding.to_string());
-            set_repo_name(directory_name.to_owned());
-
-            if get_repo_name().is_empty() {
-                die!(
-                    &found_packages[0].to_string_lossy(),
-                    "Unable to get directory name"
-                );
-            }
-
-            return binding.to_string();
         }
     }
-
-    if !print {
-        die!(name, "not found");
-    }
-
-    String::new()
 }
 
 fn extract_package_version(package: &Path) -> Option<String> {
@@ -119,7 +157,8 @@ fn extract_package_version(package: &Path) -> Option<String> {
 }
 
 pub fn pkg_cache(config: &Config, pkg: &str) -> Option<String> {
-    let version: String = pkg_find_version(config, pkg, false);
+    let version: String = pkg_find_version(config, pkg, None)
+        .unwrap_or_else(|| die!(pkg.to_owned() + ":", "Failed to get version"));
 
     let file: String = format!(
         "{}/{}@{}.tar.",

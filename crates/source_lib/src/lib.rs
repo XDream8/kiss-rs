@@ -174,7 +174,7 @@ pub fn pkg_source_resolve(
     let source_parts: Vec<String> = source.split('/').map(|e| e.to_owned()).collect();
 
     // get last element- repo name - for git
-    let mut repo_name: String = source_parts.clone().last().unwrap().to_owned();
+    let mut repo_name: String = source_parts.last().unwrap().to_owned();
 
     // both git and remote sources uses this dest
     let _dest = format!(
@@ -201,38 +201,36 @@ pub fn pkg_source_resolve(
 
     // let remote_dest = format!("{}", *SRC_DIR, package_name, );
 
-    let source_clone = source.clone();
-
     let (_res, _des) = match source {
         // unwanted
-        _ if source.starts_with('#') => ("".to_owned(), "".to_owned()),
+        _ if source.starts_with('#') => (String::new(), String::new()),
         // git source
-        _ if source.starts_with("git+") => (source_clone, _dest),
+        _ if source.starts_with("git+") => (source.to_string(), _dest),
         // Remote source(cached)
-        _ if source.contains("://") && Path::new(&_dest).exists() => (_dest.clone(), _dest),
+        _ if source.contains("://") && Path::new(&_dest).exists() => (_dest.to_string(), _dest),
         // Remote source
-        _ if source.contains("://") => (source_clone, _dest),
+        _ if source.contains("://") => (source.to_string(), _dest),
         // Local relative dir
         _ if !repo_dir.is_empty()
             && Path::new(repo_dir).join(source.as_str()).join(".").exists() =>
         {
             let source = format!("{}/{}/.", repo_dir, source);
-            (source.clone(), source)
+            (source.to_string(), source)
         }
         // Local absolute dir
         _ if Path::new("/").join(source.trim_end_matches('/')).exists() => {
             let source = format!("/{}/.", source.trim_end_matches('/'));
-            (source.clone(), source)
+            (source.to_string(), source)
         }
         // Local relative file
         _ if !repo_dir.is_empty() && Path::new(repo_dir).join(source.as_str()).exists() => {
             let source = format!("{}/{}", repo_dir, source);
-            (source.clone(), source)
+            (source.to_string(), source)
         }
         // Local absolute file
         _ if Path::new("/").join(source.trim_start_matches('/')).exists() => {
             let source = format!("/{}", source.trim_start_matches('/'));
-            (source.clone(), source)
+            (source.to_string(), source)
         }
         _ => (String::new(), String::new()),
     };
@@ -554,8 +552,8 @@ pub fn pkg_tar(config: &Config, pkg: &str) {
 }
 
 // for extracting
-pub fn pkg_source_tar(res: String, dest_path: &Path, no_leading_dir: bool) {
-    let file: File = File::open(&res).expect("Failed to open tar file");
+pub fn pkg_source_tar(res: &String, dest_path: &Path, no_leading_dir: bool) {
+    let file: File = File::open(res).expect("Failed to open tar file");
     let extension: Option<&str> = Path::new(res.as_str())
         .extension()
         .and_then(|ext| ext.to_str());

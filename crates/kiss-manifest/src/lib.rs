@@ -35,7 +35,7 @@ pub fn pkg_manifest(config: &Config, pkg: &str, dir: &Path) {
 
     // remove manifest file if it already exists
     if pkg_manifest_pathbuf.exists() {
-        std::fs::remove_file(pkg_manifest_pathbuf.clone())
+        std::fs::remove_file(&pkg_manifest_pathbuf)
             .expect("Failed to remove already existing manifest file");
     }
 
@@ -53,7 +53,7 @@ pub fn pkg_manifest(config: &Config, pkg: &str, dir: &Path) {
             if path_str.starts_with(&prefix) {
                 if modified_path.is_dir() {
                     // add ’/’ to end of the directories and strip prefix
-                    let mut path_buf = modified_path.clone();
+                    let mut path_buf = modified_path;
                     path_buf.push("");
                     let path_buf_str = path_buf.to_string_lossy();
                     Some(PathBuf::from(&path_buf_str[prefix.len()..]))
@@ -84,9 +84,9 @@ pub fn pkg_manifest(config: &Config, pkg: &str, dir: &Path) {
         .expect("Failed to copy tmp_file to actual manifest path");
 }
 
-pub fn pkg_manifest_validate(pkg: &str, path: &str, manifest_path: PathBuf, debug: bool) {
+pub fn pkg_manifest_validate(config: &Config, pkg: &str, path: &str, manifest_path: &PathBuf) {
     // debug comes from caller
-    if debug {
+    if config.debug || config.verbose {
         log!(pkg, "Checking if manifest is valid");
     }
 

@@ -12,5 +12,4 @@ description = "Update the system"
 shared_lib = { path = "../shared_lib" }
 kiss-build = { path = "../kiss-build" }
 kiss-search = { path = "../kiss-search" }
-## cli
 seahorse = "2.1"

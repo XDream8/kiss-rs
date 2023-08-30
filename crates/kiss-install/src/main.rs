@@ -26,6 +26,7 @@ fn main() {
         .flag(debug_flag())
         .flag(force_flag())
         .flag(prompt_flag())
+        .flag(verbose_flag())
         .flag(strip_flag())
         .flag(pid_flag())
         .flag(kiss_compress_flag())

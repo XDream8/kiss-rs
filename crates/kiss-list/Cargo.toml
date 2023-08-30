@@ -10,9 +10,7 @@ description = "list installed packages"
 
 [dependencies]
 shared_lib = { path = "../shared_lib" }
-## cli
 seahorse = "2.1"
-## threading
 rayon = { version = "1.7.0", optional = true }
 
 [features]

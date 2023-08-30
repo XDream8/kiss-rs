@@ -24,14 +24,7 @@ fn update_action(c: &Context) {
     set_config(c, false);
     let config: RwLockReadGuard<'_, Config> = get_config();
 
-    let kiss_path: Vec<String> = config
-        .kiss_path
-        .iter()
-        .cloned()
-        .filter(|x| x != &config.sys_db.to_string_lossy().to_string())
-        .collect();
-
-    let repositories: Vec<String> = get_repositories(&kiss_path);
+    let repositories: Vec<String> = get_repositories(&config.kiss_path);
 
     println!("Updating repositories");
 

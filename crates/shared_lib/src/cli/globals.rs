@@ -112,7 +112,7 @@ impl Config {
 
             // remove duplicates and empty entries from paths
             let mut set: HashSet<String> = HashSet::new();
-            path.retain(|x| !x.is_empty() && set.insert(x.clone()));
+            path.retain(|x| !x.is_empty() && set.insert(x.to_string()));
 
             path
         };
@@ -218,7 +218,7 @@ pub fn set_config(c: &Context, handle_signals: bool) {
 
             // remove duplicates and empty entries from paths
             let mut set: HashSet<String> = HashSet::new();
-            path.retain(|x| !x.is_empty() && set.insert(x.clone()));
+            path.retain(|x| !x.is_empty() && set.insert(x.to_string()));
 
             path
         };

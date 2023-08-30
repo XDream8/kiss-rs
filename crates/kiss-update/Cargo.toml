@@ -11,5 +11,4 @@ description = "Update the repositories"
 [dependencies]
 shared_lib = { path = "../shared_lib" }
 source_lib = { path = "../source_lib" }
-## cli
 seahorse = "2.1"

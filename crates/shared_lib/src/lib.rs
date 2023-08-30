@@ -201,7 +201,7 @@ pub fn read_a_dir_and_sort(
                     }
                 }
 
-                Some(path.clone())
+                Some(path)
             })
             .collect();
 
@@ -254,24 +254,23 @@ pub fn read_sources(
     let result: Vec<(String, String)> = iter!(sources)
         .filter(|&x| !x.starts_with('#'))
         .map(|source| {
-            let mut source = source.clone();
-            let mut dest = String::new();
-
             // consider user-given folder name
             if source.contains(' ') {
                 let source_parts: Vec<String> = source.split(' ').map(|l| l.to_owned()).collect();
-                source = source_parts.first().unwrap().to_owned();
-                dest = source_parts
-                    .last()
-                    .unwrap()
-                    .to_owned()
-                    .trim_end_matches('/')
-                    .to_owned();
+                (
+                    source_parts.first().unwrap().to_owned(),
+                    source_parts
+                        .last()
+                        .unwrap()
+                        .to_owned()
+                        .trim_end_matches('/')
+                        .to_owned(),
+                )
             } else if !source.contains("git+") && !source.contains("http") {
-                dest = source.clone();
+                (source.to_string(), source.to_string())
+            } else {
+                (source.to_string(), String::new())
             }
-
-            (source, dest)
         })
         .collect();
 

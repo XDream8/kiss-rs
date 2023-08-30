@@ -140,7 +140,7 @@ fn pkg_conflicts(
 }
 
 fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String) {
-    if config.debug {
+    if config.debug || config.verbose {
         log!(pkg, "Checking if package installable");
     }
 
@@ -166,7 +166,7 @@ fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String) {
             continue;
         }
 
-        if config.sys_db.join(dep.clone()).exists() {
+        if config.sys_db.join(&dep).exists() {
             continue;
         }
 
@@ -431,7 +431,7 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
     mkcd(extract_dir.to_str().unwrap_or(""));
 
     // extract to current dir
-    pkg_source_tar(tar_file.clone(), &extract_dir, false);
+    pkg_source_tar(&tar_file, &extract_dir, false);
 
     let manifest_path: PathBuf = extract_dir
         .join(&config.pkg_db)
@@ -449,10 +449,10 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
 
     if !config.force {
         pkg_manifest_validate(
+            config,
             pkg.as_str(),
             extract_dir.to_str().unwrap_or(""),
-            manifest_path.clone(),
-            config.debug,
+            &manifest_path,
         );
         pkg_installable(
             config,
@@ -482,7 +482,7 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
     let tar_man: String = format!("{}/{}/manifest", config.pkg_db, pkg);
 
     let old_files: Vec<String> = read_a_files_lines(&tar_man)?;
-    let new_files: Vec<String> = read_a_files_lines(manifest_path.clone())?;
+    let new_files: Vec<String> = read_a_files_lines(&manifest_path)?;
 
     // Generate a list of files which exist in the currently installed manifest
     // but not in the newer (to be installed) manifest.

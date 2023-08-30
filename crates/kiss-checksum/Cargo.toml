@@ -16,11 +16,8 @@ path = "src/lib.rs"
 shared_lib = { path = "../shared_lib" }
 source_lib = { path = "../source_lib"}
 kiss-search = { path = "../kiss-search" }
-## cli
 seahorse = "2.1"
-## threading
 rayon = { version = "1.7.0", optional = true }
-## checksum
 blake3 = { version = "1.4.0", default-features = false }
 faster-hex = { version = "0.8.0", default-features = false, features = [ "alloc" ] }
 

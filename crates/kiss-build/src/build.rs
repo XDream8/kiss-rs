@@ -51,12 +51,12 @@ pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
             copy_folder(Path::new(des.as_str()), dest_path.as_path())
                 .expect("Failed to copy git source");
         } else if des.contains(".tar.") {
-            pkg_source_tar(res, &dest_path, true);
+            pkg_source_tar(&res, &dest_path, true);
         } else {
             let file_name = Path::new(res.as_str()).file_name().unwrap();
             let dest_path: PathBuf = dest_path.join(file_name);
             // println!("{dest_path:?}");
-            fs::copy(res.clone(), &dest_path).expect("Failed to copy file");
+            fs::copy(&res, &dest_path).expect("Failed to copy file");
         }
     }
 }
@@ -113,7 +113,7 @@ fn strip_files_recursive(repo_name: &str, directory: &Path) {
             else {
                 // to detect if it is a elf executable
                 let mut header = [0u8; 4];
-                if File::open(file_path.clone())
+                if File::open(file_path)
                     .expect("Failed to open file")
                     .read_exact(&mut header)
                     .is_err()

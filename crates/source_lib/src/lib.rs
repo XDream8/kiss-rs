@@ -388,7 +388,7 @@ pub fn pkg_source_url(
     download_source: &str,
     download_dest: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    log!(&repo_name, "Downloading:", download_source);
+    log!(repo_name, "Downloading:", download_source);
 
     let response: Response = HTTP_CLIENT.get(download_source).call()?;
 

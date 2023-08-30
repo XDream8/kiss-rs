@@ -11,11 +11,10 @@ use shared_lib::signal::pkg_clean;
 use shared_lib::{die, log};
 
 use shared_lib::{
-    is_symlink, mkcd, read_a_dir_and_sort, read_a_files_lines, remove_chars_after_last,
+    cat, is_symlink, mkcd, read_a_dir_and_sort, read_a_files_lines, remove_chars_after_last,
 };
 
 use std::fs::File;
-use std::io::Read;
 
 // for checking conflicts
 use shared_lib::resolve_path;
@@ -150,18 +149,16 @@ fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String) {
     let depends: Vec<String> = read_a_files_lines(depends_file_path).unwrap();
 
     for dependency in depends {
-        let mut dep: String = dependency.clone();
         if dependency.starts_with('#') {
             continue;
         }
 
-        let mut dependency_type: String = String::new();
-        if dependency.contains(" make") {
-            dependency_type = "make".to_owned();
-            dep = remove_chars_after_last(&dependency, ' ')
-                .trim_end()
-                .to_owned();
-        }
+        let (dep, dependency_type): (String, Option<&str>) = if dependency.contains(" make") {
+            let binding = &remove_chars_after_last(&dependency, ' ').trim_end();
+            (binding.to_string(), Some("make"))
+        } else {
+            (dependency, None)
+        };
 
         // check if user defined a replacement
         let pkg: &String = &pkg_get_provides(pkg, &config.provides_db).unwrap_or(pkg.to_owned());
@@ -173,7 +170,7 @@ fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String) {
             continue;
         }
 
-        println!("{} {}", dep, dependency_type);
+        println!("{} {}", dep, dependency_type.unwrap_or(""));
 
         count += 1;
     }
@@ -294,9 +291,7 @@ fn pkg_install_files(
         if file.contains("/etc/") {
             let sum_old: Option<String> = match verify {
                 true => {
-                    let mut buffer: String = String::new();
-                    let mut old_file: File = fs::File::open(&dest_path)?;
-                    old_file.read_to_string(&mut buffer)?;
+                    let buffer: String = cat(&dest_path)?;
                     Some(buffer.trim().to_owned())
                 }
                 false => None,
@@ -359,8 +354,7 @@ fn pkg_remove_files(
 
     for file in files {
         if file.contains("/etc") {
-            let mut sum_pkg: String = String::new();
-            fs::File::open(kiss_root.join(file))?.read_to_string(&mut sum_pkg)?;
+            let sum_pkg: String = cat(&kiss_root.join(file))?;
 
             let hash: String = get_file_hash(
                 format!("{}/{}", kiss_root.to_string_lossy(), file)
@@ -426,12 +420,10 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
                 .unwrap()
                 .to_owned(),
         )
+    } else if let Some(tarball) = pkg_cache(config, package_tar) {
+        (package_tar.to_owned(), tarball)
     } else {
-        if let Some(tarball) = pkg_cache(config, package_tar) {
-            (package_tar.to_owned(), tarball)
-        } else {
-            die!(package_tar, "Not yet built");
-        }
+        die!(package_tar, "Not yet built");
     };
 
     // cd into extract directory

@@ -249,9 +249,6 @@ name = "kiss"
 version = "0.1.0"
 dependencies = [
  "libc",
- "once_cell",
- "seahorse",
- "shared_lib",
 ]
 
 [[package]]

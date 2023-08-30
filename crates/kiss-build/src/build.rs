@@ -37,7 +37,7 @@ pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
 
     for (source, dest) in sources.iter() {
         let (res, des): (String, String) =
-            pkg_source_resolve(config, pkg, &repo_dir, source, dest, false);
+            pkg_source_resolve(config, pkg, repo_dir, source, dest, false);
 
         // temporary solution - need to find a better way
         let dest_path: PathBuf = config.mak_dir.join(pkg);
@@ -232,7 +232,7 @@ fn pkg_depends(
     pkg: &String,
     expl: bool,
     filter: bool,
-    dep_type: String,
+    dep_type: Option<&str>,
 ) {
     // check if user defined a replacement
     let pkg: &String = &pkg_get_provides(pkg, &config.provides_db).unwrap_or(pkg.to_owned());
@@ -252,17 +252,16 @@ fn pkg_depends(
     if !repo_dir.exists() || repo_dir.join("depends").exists() {
         let depends: Vec<String> = read_a_files_lines(repo_dir.join("depends")).unwrap();
         for dependency in depends {
-            let mut dep = dependency.clone();
             if dependency.starts_with('#') {
                 continue;
             }
 
-            let mut dependency_type: String = String::new();
-            if dependency.contains(" make") {
-                dependency_type = "make".to_owned();
+            let (dep, dependency_type): (String, Option<&str>) = if dependency.contains(" make") {
                 let binding = &remove_chars_after_last(&dependency, ' ').trim_end();
-                dep = binding.to_string();
-            }
+                (binding.to_string(), Some("make"))
+            } else {
+                (dependency, None)
+            };
 
             pkg_depends(config, dependencies, &dep, false, filter, dependency_type);
         }
@@ -271,7 +270,7 @@ fn pkg_depends(
     }
 
     // add to dependency vec
-    if !expl || dep_type == "make" && pkg_cache(config, pkg).is_none() {
+    if !expl || dep_type.unwrap_or("") == "make" && pkg_cache(config, pkg).is_none() {
         dependencies.normal.push(pkg.to_owned());
     }
 }
@@ -283,27 +282,13 @@ where
     // find dependencies
     if !packages.is_empty() {
         for package in packages {
-            pkg_depends(
-                config,
-                dependencies,
-                &package.to_string(),
-                true,
-                true,
-                String::new(),
-            );
+            pkg_depends(config, dependencies, &package.to_string(), true, true, None);
             dependencies.explicit.push(package.to_string());
         }
     } else {
         let current_dir: String = get_current_working_dir();
         let package: &str = get_directory_name(&current_dir);
-        pkg_depends(
-            config,
-            dependencies,
-            &package.to_owned(),
-            true,
-            true,
-            String::new(),
-        );
+        pkg_depends(config, dependencies, &package.to_owned(), true, true, None);
         dependencies.explicit.push(package.to_owned());
     }
 
@@ -326,6 +311,7 @@ where
         )
     }
 
+    // prompt
     if !dependencies.normal.is_empty() && config.prompt {
         prompt(None);
     }
@@ -345,16 +331,17 @@ where
         }
     }
 
-    let all_packages = dependencies
+    let all_packages: Vec<&String> = dependencies
         .normal
         .iter()
-        .chain(dependencies.explicit.iter());
+        .chain(dependencies.explicit.iter())
+        .collect();
 
     // download and check sources
-    for package in all_packages.clone() {
+    for package in &all_packages {
         pkg_source(config, package, false, true);
         let repo_dir = pkg_find_path(config, package, None)
-            .unwrap_or_else(|| die!(package.to_owned() + ":", "Failed to get version"))
+            .unwrap_or_else(|| die!(package.to_string() + ":", "Failed to get version"))
             .to_string_lossy()
             .to_string();
 
@@ -365,7 +352,7 @@ where
 
     // build process
     let mut build_cur: usize = 0;
-    let package_count: usize = all_packages.clone().count();
+    let package_count: usize = all_packages.len();
 
     for package in all_packages {
         // print status

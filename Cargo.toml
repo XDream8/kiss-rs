@@ -1,10 +1,17 @@
-cargo-features = ["profile-rustflags"]
-
 [workspace]
 resolver = "2"
 members = [
   "crates/kiss",
-  "crates/kiss-*",
+  "crates/kiss-build",
+  "crates/kiss-checksum",
+  "crates/kiss-download",
+  "crates/kiss-install",
+  "crates/kiss-list",
+  "crates/kiss-manifest",
+  "crates/kiss-provides",
+  "crates/kiss-search",
+  "crates/kiss-update",
+  "crates/kiss-upgrade",
 ]
 
 [profile.release]
@@ -17,7 +24,6 @@ lto = "fat"
 codegen-units = 1
 strip = true
 opt-level = 3
-rustflags = ["-C", "target-feature=+crt-static"]
 
 [profile.optimized_size]
 inherits = "optimized"

@@ -13,7 +13,7 @@ use crate::signal::pkg_clean;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{self, BufReader, Read, Result};
+use std::io::{self, BufReader, Result};
 use std::path::{Path, PathBuf};
 
 use seahorse::Context;
@@ -79,12 +79,10 @@ pub fn run_command(command: &str, args: &Vec<&str>) -> Result<ExitStatus> {
 
 // file operations
 pub fn cat(path: &Path) -> Result<String> {
-    let mut f: File = File::open(path)?;
-    let mut s: String = String::new();
-    match f.read_to_string(&mut s) {
-        Ok(_) => Ok(s),
-        Err(e) => Err(e),
-    }
+    let file_bytes: Vec<u8> = fs::read(path)?;
+    let buffer: String = String::from_utf8(file_bytes).unwrap_or(String::new());
+
+    Ok(buffer)
 }
 
 #[inline]

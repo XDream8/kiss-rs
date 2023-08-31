@@ -424,7 +424,6 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) -> Result<(), io::Er
     // Clone a new user namespace for the child process
     // unshare(CloneFlags::CLONE_NEWUSER).expect("Failed to unshare");
 
-    // wait for build to finish and return status
     let user_info: User = User::from_name("nobody").unwrap().unwrap();
 
     // Recursively change the group ownership
@@ -434,8 +433,6 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) -> Result<(), io::Er
             format!("Error changing group recursively: {}", err),
         ));
     }
-
-    // Change the group of the folder
 
     let mut child: Child = unsafe {
         Command::new(executable)
@@ -466,6 +463,7 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) -> Result<(), io::Er
             .spawn()?
     };
 
+    // wait for build to finish and return status
     let status: ExitStatus = child.wait()?;
     if status.success() {
         // give info
@@ -501,17 +499,15 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) -> Result<(), io::Er
 }
 
 fn change_group_recursive(path: &Path, new_uid: Uid, new_gid: Gid) -> std::io::Result<()> {
-    if let Ok(entries) = fs::read_dir(&path) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let metadata = entry.metadata()?;
-                let entry_path = entry.path();
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            let metadata = entry.metadata()?;
+            let entry_path = entry.path();
 
-                if metadata.is_file() || metadata.is_dir() {
-                    chown(&entry_path, Some(new_uid), Some(new_gid))?;
-                    if metadata.is_dir() {
-                        change_group_recursive(&entry_path, new_uid, new_gid)?;
-                    }
+            if metadata.is_file() || metadata.is_dir() {
+                chown(&entry_path, Some(new_uid), Some(new_gid))?;
+                if metadata.is_dir() {
+                    change_group_recursive(&entry_path, new_uid, new_gid)?;
                 }
             }
         }

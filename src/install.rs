@@ -133,7 +133,7 @@ fn pkg_conflicts(
     Ok(())
 }
 
-fn pkg_installable(config: &Config, pkg: &str, depends_file_path: String) {
+fn pkg_installable(config: &Config, pkg: &str, depends_file_path: &String) {
     if config.debug || config.verbose {
         log!(pkg, "Checking if package installable");
     }
@@ -459,7 +459,7 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
         pkg_installable(
             config,
             pkg.as_str(),
-            format!("./{}/{}/depends", config.pkg_db, pkg),
+            &format!("./{}/{}/depends", config.pkg_db, pkg),
         );
     }
 
@@ -472,8 +472,7 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
     )?;
 
     log!(
-        "Installing",
-        pkg.to_owned() + ":",
+        format!("Installing {pkg}"),
         tar_file
             .split('/')
             .last()
@@ -536,19 +535,19 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
         install_files_result2,
     ) {
         (Ok(_), Ok(_), Ok(_)) => log!("Installed successfully:", pkg),
-        (Err(err), _, _) => log_and_notify_error("Error installing files:", pkg, err),
-        (_, Err(err), _) => log_and_notify_error("Error removing files:", pkg, err),
-        (_, _, Err(err)) => log_and_notify_error("Error verifying files:", pkg, err),
+        (Err(err), _, _) => log_and_notify_error("Error installing files:", &pkg, err),
+        (_, Err(err), _) => log_and_notify_error("Error removing files:", &pkg, err),
+        (_, _, Err(err)) => log_and_notify_error("Error verifying files:", &pkg, err),
     }
 
     Ok(())
 }
 
-fn log_and_notify_error(log: &str, pkg: String, err: impl std::error::Error) {
+fn log_and_notify_error(log: &str, pkg: &String, err: impl std::error::Error) {
     log!(log, err);
     die!(
         "Error installing:",
-        pkg.to_owned() + ":",
+        format!("{pkg}:"),
         "Filesystem now dirty, manual repair needed."
     );
 }

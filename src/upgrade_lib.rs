@@ -30,9 +30,9 @@ pub fn pkg_upgrade(config: &Config, dependencies: &mut Dependencies) {
                 pkg_name,
                 Some(&config.sys_db.to_string_lossy().to_string()),
             )
-            .unwrap_or_else(|| die!(pkg_name.to_owned() + ":", "Failed to get version"));
+            .unwrap_or_else(|| die!(pkg_name, "Failed to get version"));
             let new_ver: String = pkg_find_version(config, pkg_name, None)
-                .unwrap_or_else(|| die!(pkg_name.to_owned() + ":", "Failed to get version"));
+                .unwrap_or_else(|| die!(pkg_name, "Failed to get version"));
 
             if old_ver != new_ver {
                 println!("{pkg_name} {old_ver} => {new_ver}");

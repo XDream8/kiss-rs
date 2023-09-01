@@ -13,7 +13,7 @@ use kiss::install::pkg_install;
 use kiss::provides_lib::{add_remove_from_provides, list_provides};
 use kiss::search_lib::pkg_find;
 use kiss::shared_lib::{
-    cat, get_current_working_dir, get_directory_name,
+    am_owner, cat, get_current_working_dir, get_directory_name,
     globals::{get_config, set_config, Config, Dependencies, DEPENDENCIES},
     log, read_a_dir_and_sort,
 };
@@ -197,6 +197,12 @@ fn build_action(c: &Context) {
 }
 
 fn checksum_action(c: &Context) {
+    // Check if the user is running as root
+    if !Uid::effective().is_root() {
+        eprintln!("This application must be run as root.");
+        exit(1);
+    }
+
     set_config(c, false);
     let config: RwLockReadGuard<'_, Config> = get_config();
 
@@ -212,6 +218,12 @@ fn checksum_action(c: &Context) {
 }
 
 fn download_action(c: &Context) {
+    // Check if the user is running as root
+    if !Uid::effective().is_root() {
+        eprintln!("This application must be run as root.");
+        exit(1);
+    }
+
     set_config(c, true);
     let config: RwLockReadGuard<'_, Config> = get_config();
     // get packages
@@ -383,12 +395,18 @@ fn update_action(c: &Context) {
     set_config(c, false);
     let config: RwLockReadGuard<'_, Config> = get_config();
 
+    println!("{:?}", config.kiss_path);
     let repositories: Vec<String> = get_repositories(&config.kiss_path);
+    println!("{:?}", repositories);
 
     println!("Updating repositories");
 
     repositories.iter().for_each(|repo_path| {
         log!(repo_path);
+        if let Ok(Some(user)) = am_owner(repo_path) {
+            eprintln!("This repository requires you to run this command as {user}",);
+            exit(1);
+        }
         if let Err(err) = pkg_update_repo(repo_path) {
             eprintln!("Error updating repository {}: {}", repo_path, err);
         }
@@ -396,6 +414,12 @@ fn update_action(c: &Context) {
 }
 
 fn upgrade_action(c: &Context) {
+    // Check if the user is running as root
+    if !Uid::effective().is_root() {
+        eprintln!("This command must be run as root.");
+        exit(1);
+    }
+
     set_config(c, true);
     let config: RwLockReadGuard<'_, Config> = get_config();
     let mut dependencies: RwLockWriteGuard<'_, Dependencies> = DEPENDENCIES.write().unwrap();

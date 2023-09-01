@@ -10,8 +10,8 @@ pub use crate::{die, log};
 use globals::Config;
 use signal::pkg_clean;
 
-use std::fs;
 use std::fs::File;
+use std::fs::{self, Metadata};
 use std::io::prelude::*;
 use std::io::{self, BufReader, Result};
 use std::path::{Path, PathBuf};
@@ -27,7 +27,7 @@ use crate::{iter, sort};
 #[cfg(feature = "threading")]
 use rayon::iter::ParallelIterator;
 
-use nix::unistd::getuid;
+use nix::unistd::{getuid, Uid, User};
 
 // Functions
 
@@ -307,80 +307,90 @@ pub fn is_symlink(path: &Path) -> bool {
     }
 }
 
-pub fn am_owner(file_or_dir: &str) -> Result<bool> {
-    let metadata = fs::metadata(file_or_dir)?;
-    let current_uid = getuid();
-    Ok(metadata.uid() == current_uid.into())
-}
+pub fn am_owner(file_or_dir: &str) -> Result<Option<String>> {
+    let metadata: Metadata = fs::metadata(file_or_dir)?;
+    let current_uid: Uid = getuid();
 
-// used by kiss-build to install deps and packages
-pub fn run_action(binary_name: &str, binary_args: Option<&[&str]>) -> Result<()> {
-    // Collect command line arguments
-    let args: Vec<String> = env::args().collect();
-
-    // Get the path to the current executable
-    let exe_path: PathBuf = env::current_exe()?;
-
-    // Get the directory containing the executable
-    let exe_dir: &Path = exe_path.parent().ok_or(io::Error::new(
-        io::ErrorKind::Other,
-        "Failed to get the directory",
-    ))?;
-
-    // Construct the binary path in the same directory as the wrapper
-    let binary_path_in_exe_dir: PathBuf = exe_dir.join(format!("kiss-{}", binary_name));
-
-    let binary_path: Option<PathBuf> = if binary_path_in_exe_dir.exists() {
-        Some(binary_path_in_exe_dir)
+    if metadata.uid() == current_uid.into() {
+        Ok(None)
     } else {
-        // If the binary is not found in the same directory as the wrapper, search the system PATH
-        env::var("PATH")
-            .expect("Failed to get PATH environment variable")
-            .split(':')
-            .find_map(|path| {
-                let path: String = path.to_string();
-                let binary_name: String = format!("kiss-{}", binary_name);
-                let binary_path: PathBuf = Path::new(&path).join(&binary_name);
-                if binary_path.exists() {
-                    Some(binary_path)
-                } else if Path::new(&path).exists() {
-                    let entries: Vec<_> = fs::read_dir(path).ok()?.collect();
-
-                    entries.iter().find_map(|entry| {
-                        let entry = entry.as_ref().unwrap();
-                        let path: PathBuf = entry.path();
-
-                        if let Some(file_name) = path.file_name() {
-                            let file_name: String = file_name.to_string_lossy().into_owned();
-
-                            if file_name.starts_with(&binary_name) {
-                                Some(path)
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    })
-                } else {
-                    None
-                }
-            })
-    };
-
-    // execute command
-    if let Some(binary_path) = binary_path {
-        // Build the command to execute the binary
-        let mut command: Command = Command::new(binary_path);
-        // Pass all arguments except the first two (wrapper and binary name)
-        command.args(&args[2..]);
-        if let Some(binary_args) = binary_args {
-            command.args(binary_args);
-        }
-
-        // Execute the binary
-        command.status()?;
+        let user_name: String = if let Ok(Some(user)) = User::from_uid(metadata.uid().into()) {
+            user.name
+        } else {
+            String::from("unknown")
+        };
+        Ok(Some(user_name))
     }
-
-    Ok(())
 }
+
+// // used by kiss-build to install deps and packages
+// pub fn run_action(binary_name: &str, binary_args: Option<&[&str]>) -> Result<()> {
+//     // Collect command line arguments
+//     let args: Vec<String> = env::args().collect();
+
+//     // Get the path to the current executable
+//     let exe_path: PathBuf = env::current_exe()?;
+
+//     // Get the directory containing the executable
+//     let exe_dir: &Path = exe_path.parent().ok_or(io::Error::new(
+//         io::ErrorKind::Other,
+//         "Failed to get the directory",
+//     ))?;
+
+//     // Construct the binary path in the same directory as the wrapper
+//     let binary_path_in_exe_dir: PathBuf = exe_dir.join(format!("kiss-{}", binary_name));
+
+//     let binary_path: Option<PathBuf> = if binary_path_in_exe_dir.exists() {
+//         Some(binary_path_in_exe_dir)
+//     } else {
+//         // If the binary is not found in the same directory as the wrapper, search the system PATH
+//         env::var("PATH")
+//             .expect("Failed to get PATH environment variable")
+//             .split(':')
+//             .find_map(|path| {
+//                 let path: String = path.to_string();
+//                 let binary_name: String = format!("kiss-{}", binary_name);
+//                 let binary_path: PathBuf = Path::new(&path).join(&binary_name);
+//                 if binary_path.exists() {
+//                     Some(binary_path)
+//                 } else if Path::new(&path).exists() {
+//                     let entries: Vec<_> = fs::read_dir(path).ok()?.collect();
+
+//                     entries.iter().find_map(|entry| {
+//                         let entry = entry.as_ref().unwrap();
+//                         let path: PathBuf = entry.path();
+
+//                         if let Some(file_name) = path.file_name() {
+//                             let file_name: String = file_name.to_string_lossy().into_owned();
+
+//                             if file_name.starts_with(&binary_name) {
+//                                 Some(path)
+//                             } else {
+//                                 None
+//                             }
+//                         } else {
+//                             None
+//                         }
+//                     })
+//                 } else {
+//                     None
+//                 }
+//             })
+//     };
+
+//     // execute command
+//     if let Some(binary_path) = binary_path {
+//         // Build the command to execute the binary
+//         let mut command: Command = Command::new(binary_path);
+//         // Pass all arguments except the first two (wrapper and binary name)
+//         command.args(&args[2..]);
+//         if let Some(binary_args) = binary_args {
+//             command.args(binary_args);
+//         }
+
+//         // Execute the binary
+//         command.status()?;
+//     }
+
+//     Ok(())
+// }

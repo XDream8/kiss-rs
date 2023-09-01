@@ -21,7 +21,7 @@ macro_rules! log {
 
         if !$first.is_empty() {
             stdout.write_all(b"\x1b[1;34m").unwrap();
-            write!(&mut stdout, "{}", $first).unwrap();
+            write!(&mut stdout, "{}:", $first).unwrap();
             stdout.write_all(b"\x1b[0m").unwrap();
         }
 
@@ -57,7 +57,7 @@ macro_rules! die {
 
         if !$first.is_empty() {
             stderr.write_all(b"\x1b[1;34m").unwrap();
-            write!(&mut stderr, "{}", $first).unwrap();
+            write!(&mut stderr, "{}:", $first).unwrap();
             stderr.write_all(b"\x1b[0m").unwrap();
         }
 

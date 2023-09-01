@@ -8,9 +8,9 @@ use crate::die;
 use crate::shared_lib::signal::pkg_clean;
 
 // threading
+use crate::iter;
 #[cfg(feature = "threading")]
 use rayon::iter::ParallelIterator;
-use crate::iter;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -131,8 +131,8 @@ fn extract_package_version(package: &Path) -> Option<String> {
 }
 
 pub fn pkg_cache(config: &Config, pkg: &str) -> Option<String> {
-    let version: String = pkg_find_version(config, pkg, None)
-        .unwrap_or_else(|| die!(pkg.to_owned() + ":", "Failed to get version"));
+    let version: String =
+        pkg_find_version(config, pkg, None).unwrap_or_else(|| die!(pkg, "Failed to get version"));
 
     let file: String = format!(
         "{}/{}@{}.tar.",

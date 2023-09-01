@@ -56,9 +56,9 @@ pub fn get_file_hash(file_path: &str) -> Result<String> {
     Ok(faster_hex::hex_string(&hash_output))
 }
 
-pub fn pkg_verify(config: &Config, pkg: &str, repo_dir: String) {
+pub fn pkg_verify(config: &Config, pkg: &str, repo_dir: &String) {
     if config.debug || config.verbose {
-        log!(pkg.to_owned() + ":", "Verifying sources");
+        log!(pkg, "Verifying sources");
     }
 
     let hashes: Vec<String> = pkg_checksum_gen(config, pkg, repo_dir.as_str());
@@ -82,7 +82,7 @@ pub fn pkg_checksum(config: &Config, package: &str) {
     pkg_source(config, package, true, false);
 
     let repo_dir: String = pkg_find_path(config, package, None)
-        .unwrap_or_else(|| die!(package.to_owned() + ":", "Failed to get version"))
+        .unwrap_or_else(|| die!(package, "Failed to get version"))
         .to_string_lossy()
         .to_string();
     let repo_name: &str = get_directory_name(&repo_dir);

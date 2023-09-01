@@ -52,24 +52,21 @@ pub static HTTP_CLIENT: Lazy<Agent> = Lazy::new(|| {
 });
 
 // get root directories of repositories and return them as a vector
-pub fn get_repositories(repo_path: &Vec<String>) -> Vec<String> {
+pub fn get_repositories(repo_path: &[String]) -> Vec<String> {
     let mut repositories: Vec<String> = Vec::new();
 
     for repository in repo_path {
         let path: &Path = Path::new(&repository);
-        match Repository::open(path) {
-            Ok(_) => {
-                let path_str: String = path.to_string_lossy().to_string();
-                if !repositories.contains(&path_str) && path.join(".git").exists() {
-                    repositories.push(path_str)
-                }
+        if Repository::open(path).is_ok() {
+            let path_str: String = path.to_string_lossy().to_string();
+            if path.join(".git").exists() && !repositories.contains(&path_str) {
+                repositories.push(path_str)
             }
-            Err(_) => {
-                let parent: &Path = path.parent().unwrap();
-                let parent_str: String = parent.to_string_lossy().to_string();
-                if !repositories.contains(&parent_str) && parent.join(".git").exists() {
-                    repositories.push(parent_str)
-                }
+        } else {
+            let parent: &Path = path.parent().unwrap();
+            let parent_str: String = parent.to_string_lossy().to_string();
+            if parent.join(".git").exists() && !repositories.contains(&parent_str) {
+                repositories.push(parent_str)
             }
         }
     }
@@ -177,7 +174,7 @@ pub fn pkg_source_resolve(
     let mut repo_name: String = source_parts.last().unwrap().to_owned();
 
     // both git and remote sources uses this dest
-    let _dest = format!(
+    let _dest: String = format!(
         "{}/{}/{}{}",
         config.sources_dir.to_string_lossy(),
         package_name,
@@ -236,10 +233,10 @@ pub fn pkg_source_resolve(
     };
 
     if _res.is_empty() || _des.is_empty() {
-        die!(package_name.to_owned() + ":", "No local file:", source);
+        die!(package_name, "No local file:", source);
         // local
     } else if print && _res == _des && (config.debug || config.verbose) {
-        log!(package_name.to_owned() + ":", "found", _res);
+        log!(package_name, "found", _res);
     }
     (_res, _des)
 }
@@ -247,7 +244,7 @@ pub fn pkg_source_resolve(
 pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
     let repo_dir: String = if !pkg.is_empty() {
         pkg_find_path(config, pkg, None)
-            .unwrap_or_else(|| die!(pkg.to_owned() + ":", "Failed to get package path"))
+            .unwrap_or_else(|| die!(pkg, "Failed to get package path"))
             .to_string_lossy()
             .to_string()
     } else {
@@ -267,7 +264,7 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
     }
 
     if config.debug || config.verbose {
-        log!(repo_name.to_owned() + ":", "Reading sources");
+        log!(repo_name, "Reading sources");
     }
 
     let sources: Vec<(String, String)> = read_sources(sources_file.to_str().unwrap_or("sources"))
@@ -431,13 +428,17 @@ pub fn pkg_source_url(
 }
 
 pub fn print_progress(progress: u64, total_size: u64) {
-    let percent: f64 = (progress as f64 / total_size as f64) * 100.0;
     let formatted_progress: String = convert_bytes(progress);
-    let formatted_total_size: String = convert_bytes(total_size);
-    print!(
-        "\rDownloading... {:.2}% ({}/{})",
-        percent, formatted_progress, formatted_total_size
-    );
+    if total_size == 0 {
+        print!("\rDownloading... ({}/Unknown)", formatted_progress);
+    } else {
+        let percent: f64 = (progress as f64 / total_size as f64) * 100.0;
+        let formatted_total_size: String = convert_bytes(total_size);
+        print!(
+            "\rDownloading... {:.2}% ({}/{})",
+            percent, formatted_progress, formatted_total_size
+        );
+    }
     io::stdout().flush().unwrap();
 }
 
@@ -532,8 +533,8 @@ pub fn create_tar_archive(
 pub fn pkg_tar(config: &Config, pkg: &str) {
     log!(pkg, "Creating tarball");
 
-    let pkg_ver: String = pkg_find_version(config, pkg, None)
-        .unwrap_or_else(|| die!(pkg.to_owned() + ":", "Failed to get version"));
+    let pkg_ver: String =
+        pkg_find_version(config, pkg, None).unwrap_or_else(|| die!(pkg, "Failed to get version"));
     let tar_file: String = format!(
         "{}/{}@{}.tar.{}",
         config.bin_dir.to_string_lossy(),

@@ -20,19 +20,16 @@ use std::{
     fs::{self, File},
     io::{self, BufRead, Read, Write},
     path::{Path, PathBuf},
-    process::{exit, Child, Command, ExitStatus, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
 };
 
-use nix::{
-    sched::{unshare, CloneFlags},
-    unistd::{chown, fork, setgid, setuid, Gid, Uid, User},
-};
+use nix::unistd::{chown, setgid, setuid, Gid, Uid, User};
 
 use std::os::unix::process::CommandExt;
 
 pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
     if config.debug || config.verbose {
-        log!(pkg.to_owned() + ":", "Extracting sources");
+        log!(pkg, "Extracting sources");
     }
 
     let sources_file: String = format!("{}/sources", repo_dir);
@@ -328,7 +325,7 @@ where
     // directory and are up to date.
     for pkg in dependencies.normal.clone() {
         if pkg_cache(config, &pkg).is_some() {
-            log!(pkg.to_owned() + ":", "Found pre-built binary");
+            log!(pkg, "Found pre-built binary");
             dependencies.normal.retain(|x| x != &pkg);
             if let Err(err) = pkg_install(config, &pkg) {
                 die!("Failed to install package:", pkg, err);
@@ -346,12 +343,12 @@ where
     for package in &all_packages {
         pkg_source(config, package, false, true);
         let repo_dir = pkg_find_path(config, package, None)
-            .unwrap_or_else(|| die!(package.to_string() + ":", "Failed to get version"))
+            .unwrap_or_else(|| die!(package, "Failed to get version"))
             .to_string_lossy()
             .to_string();
 
         if Path::new(&repo_dir).join("sources").exists() {
-            pkg_verify(config, package, repo_dir);
+            pkg_verify(config, package, &repo_dir);
         }
     }
 
@@ -363,10 +360,10 @@ where
         // print status
         build_cur += 1;
         let build_status: String = format!("Building package ({}/{})", build_cur, package_count);
-        log!(package.to_owned() + ":", build_status);
+        log!(package, build_status);
 
         let repo_dir: String = pkg_find_path(config, package, None)
-            .unwrap_or_else(|| die!(package.to_owned() + ":", "Failed to get version"))
+            .unwrap_or_else(|| die!(package, "Failed to get version"))
             .to_string_lossy()
             .to_string();
 
@@ -374,9 +371,7 @@ where
             pkg_extract(config, package, &repo_dir);
         }
 
-        if let Err(err) = pkg_build(config, package, &repo_dir) {
-            die!("Error:", err);
-        };
+        pkg_build(config, package, &repo_dir);
         pkg_manifest(config, package, &config.pkg_dir);
         pkg_strip(config, package);
 
@@ -385,7 +380,7 @@ where
 
         if !dependencies.explicit.contains(package) {
             log!(
-                format!("{}:", package),
+                package,
                 "Needed as a dependency or has an update, installing"
             );
             if let Err(err) = pkg_install(config, package) {
@@ -407,10 +402,10 @@ where
     }
 }
 
-fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) -> Result<(), io::Error> {
+fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) {
     mkcd(format!("{}/{}", config.mak_dir.to_string_lossy(), pkg).as_str());
 
-    log!(pkg.to_owned() + ":", "Starting build");
+    log!(pkg, "Starting build");
 
     set_env_variable_if_undefined("AR", "ar");
     set_env_variable_if_undefined("CC", "cc");
@@ -424,14 +419,15 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) -> Result<(), io::Er
     // Clone a new user namespace for the child process
     // unshare(CloneFlags::CLONE_NEWUSER).expect("Failed to unshare");
 
-    let user_info: User = User::from_name("nobody").unwrap().unwrap();
+    let user_info: User = match User::from_name("nobody") {
+        Ok(Some(user)) => user,
+        Ok(None) => die!("Failed to find user: nobody"),
+        Err(err) => die!("Failed to get user info", err),
+    };
 
     // Recursively change the group ownership
     if let Err(err) = change_group_recursive(&config.proc, user_info.uid, user_info.gid) {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("Error changing group recursively: {}", err),
-        ));
+        die!("Error changing group recursively", err);
     }
 
     let mut child: Child = unsafe {
@@ -460,25 +456,25 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) -> Result<(), io::Er
 
                 Ok(())
             })
-            .spawn()?
+            .spawn()
+            .unwrap_or_else(|err| die!("Execution error", err))
     };
 
     // wait for build to finish and return status
-    let status: ExitStatus = child.wait()?;
+    let status: ExitStatus = child.wait().unwrap_or_else(|err| die!("Error", err));
     if status.success() {
         // give info
         log!(pkg, "Successfully built package")
     } else {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("{pkg}: Build failed"),
-        ));
+        die!(pkg, "Build failed");
     }
 
-    println!(
-        "current user: {}",
-        User::from_uid(nix::unistd::getuid()).unwrap().unwrap().name
-    );
+    if config.debug {
+        println!(
+            "current user: {}",
+            User::from_uid(nix::unistd::getuid()).unwrap().unwrap().name
+        );
+    }
 
     // Copy the repository files to the package directory.
     let pkg_db_dir: String = format!(
@@ -489,13 +485,8 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) -> Result<(), io::Er
     );
     mkcd(pkg_db_dir.as_str());
     if let Err(err) = copy_folder(Path::new(&repo_dir), Path::new(pkg_db_dir.as_str())) {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("Failed to copy repository files: {}", err),
-        ));
+        die!("Failed to copy repository files", err);
     }
-
-    Ok(())
 }
 
 fn change_group_recursive(path: &Path, new_uid: Uid, new_gid: Gid) -> std::io::Result<()> {

@@ -61,8 +61,7 @@ pub struct Config {
 // implement a builder function
 impl Config {
     pub fn new() -> Self {
-        let home: String = get_env_variable("HOME", String::new());
-        let cache: String = get_env_variable("XDG_CACHE_HOME", format!("{}/.cache", home));
+        let cache: String = String::from("/var/cache");
         let pid: u32 = std::process::id();
 
         // get env variables - if they are not found default_value is used
@@ -71,14 +70,9 @@ impl Config {
             PathBuf::from(env)
         };
         let kiss_compress: String = get_env_variable("KISS_COMPRESS", "gz".to_owned());
-        let kiss_root: PathBuf = {
-            let env: String = get_env_variable("KISS_ROOT", "/".to_owned());
-            PathBuf::from(env)
-        };
-        let kiss_tmp_dir: PathBuf = {
-            let env: String = get_env_variable("KISS_TMPDIR", format!("{}/kiss", cache));
-            PathBuf::from(env)
-        };
+        let kiss_root: PathBuf = PathBuf::from(get_env_variable("KISS_ROOT", "/".to_owned()));
+        let kiss_tmp_dir: PathBuf =
+            PathBuf::from(get_env_variable("KISS_TMPDIR", format!("{}/kiss", cache)));
 
         // Cache stuff
         let sources_dir: PathBuf = kiss_cache_dir.join("sources");

@@ -51,12 +51,15 @@ pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
             let dest_path = dest_path.join(dest);
             copy_folder(Path::new(des.as_str()), dest_path.as_path())
                 .expect("Failed to copy git source");
+        } else if des.contains("?no-extract") {
+            let file_name = Path::new(res.as_str()).file_name().unwrap();
+            let dest_path: PathBuf = dest_path.join(file_name);
+            fs::copy(&res, &dest_path).expect("Failed to copy file");
         } else if des.contains(".tar.") {
             pkg_source_tar(&res, &dest_path, true);
         } else {
             let file_name = Path::new(res.as_str()).file_name().unwrap();
             let dest_path: PathBuf = dest_path.join(file_name);
-            // println!("{dest_path:?}");
             fs::copy(&res, &dest_path).expect("Failed to copy file");
         }
     }
@@ -78,7 +81,7 @@ fn is_matching_directory(path: &Path) -> bool {
 }
 
 // for stripping
-fn strip_files_recursive(repo_name: &str, directory: &Path) {
+fn strip_files_recursive(directory: &Path) {
     let entries = fs::read_dir(directory).expect("Failed to read directory");
 
     let lib_and_exec_args: Vec<&str> = vec!["-s", "-R", ".comment", "-R", ".note"];
@@ -90,7 +93,7 @@ fn strip_files_recursive(repo_name: &str, directory: &Path) {
         let file_path_string: String = file_path.to_string_lossy().to_string();
 
         if file_path.is_dir() {
-            strip_files_recursive(repo_name, &file_path);
+            strip_files_recursive(&file_path);
         } else if file_path.is_file() {
             if let Some(extension) = file_path.extension() {
                 if let Some(extension_str) = extension.to_str() {
@@ -119,7 +122,7 @@ fn strip_files_recursive(repo_name: &str, directory: &Path) {
                     .read_exact(&mut header)
                     .is_err()
                 {
-                    die!(repo_name, "Failed to read file header");
+                    return;
                 }
 
                 if header == [0x7f, 0x45, 0x4c, 0x46] {
@@ -158,7 +161,7 @@ fn pkg_strip(config: &Config, pkg: &str) {
         let real_file_path = Path::new(real_file.as_str());
 
         if real_file_path.is_dir() && is_matching_directory(real_file_path) {
-            strip_files_recursive(pkg, real_file_path);
+            strip_files_recursive(real_file_path);
         }
     }
 }
@@ -418,7 +421,13 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) {
     // Clone a new user namespace for the child process
     // unshare(CloneFlags::CLONE_NEWUSER).expect("Failed to unshare");
 
-    let user_info: User = match User::from_name("nobody") {
+    // let user_info: User = match User::from_name("nobody") {
+    //     Ok(Some(user)) => user,
+    //     Ok(None) => die!("Failed to find user: nobody"),
+    //     Err(err) => die!("Failed to get user info", err),
+    // };
+
+    let user_info: User = match User::from_uid(1000.into()) {
         Ok(Some(user)) => user,
         Ok(None) => die!("Failed to find user: nobody"),
         Err(err) => die!("Failed to get user info", err),

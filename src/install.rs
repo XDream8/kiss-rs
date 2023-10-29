@@ -174,34 +174,41 @@ fn pkg_installable(config: &Config, pkg: &str, depends_file_path: &String) {
     }
 }
 
-fn pkg_etc<'a>(
-    sum_old: Option<&'a str>,
-    sum_sys: Option<&'a str>,
-    tar_dir: &str,
-    file: &str,
-) -> i32 {
-    let sum_new: String = match get_file_hash((tar_dir.to_owned() + file).as_str()) {
+// TODO: fix sum_old
+fn pkg_etc(dest_path: &Path, file: &String, new_file: String, verify: bool) -> bool {
+    // sum from the etcsum
+    let sum_old: Option<String> = match verify {
+        true => Some(String::new()),
+        false => None,
+    };
+
+    // sum of file in the system
+    let sum_sys: String = match get_file_hash(dest_path.to_string_lossy().to_string().as_str()) {
+        Ok(hash) => hash,
+        _ => String::new(),
+    };
+
+    // sum of file that will be installed
+    let sum_new: String = match get_file_hash(&new_file) {
         Ok(hash) => hash,
         _ => String::new(),
     };
 
     if let Some(sum_old) = sum_old {
-        if let Some(_sum_sys) = sum_sys {
-            // old = Y, sys = X, new = Y
-            if sum_old == sum_new && !sum_old.is_empty() {
-                return 1;
-            }
+        // old = Y, sys = X, new = Y
+        if (sum_old == sum_new) && (!sum_old.is_empty() && sum_sys != sum_old) {
+            println!("Saving {file} as {file}.new");
+            return true;
         }
-    } else if let Some(_sum_sys) = sum_sys {
+    } else {
         // old = X, sys = X, new = X
         // old = X, sys = Y, new = Y
         // old = X, sys = X, new = Y
-        return 0;
+        return false;
     }
 
     // All other cases
-    println!("Saving {} as {}.new", file, file);
-    2
+    false
 }
 
 fn file_rwx(file_path: &Path) -> Result<u32, std::io::Error> {
@@ -282,26 +289,15 @@ fn pkg_install_files(
         }
 
         // /etc file checks
-        if file.contains("/etc/") {
-            let sum_old: Option<String> = match verify {
-                true => {
-                    let buffer: String = cat(&dest_path)?;
-                    Some(buffer.trim().to_owned())
-                }
-                false => None,
-            };
-            let sum_sys: Option<String> = match get_file_hash(file) {
-                Ok(hash) => Some(hash),
-                _ => None,
-            };
+        if file.starts_with("/etc/") {
             match pkg_etc(
-                sum_old.as_deref(),
-                sum_sys.as_deref(),
-                config.tar_dir.to_str().unwrap_or(""),
+                &dest_path,
                 file,
+                source_path.to_string_lossy().to_string(),
+                verify,
             ) {
-                3 => dest_path.set_extension("new"),
-                _ => continue,
+                true => dest_path.set_extension("new"),
+                false => continue,
             };
         }
 
@@ -534,10 +530,10 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
         remove_files_result,
         install_files_result2,
     ) {
-        (Ok(_), Ok(_), Ok(_)) => log!("Installed successfully:", pkg),
-        (Err(err), _, _) => log_and_notify_error("Error installing files:", &pkg, err),
-        (_, Err(err), _) => log_and_notify_error("Error removing files:", &pkg, err),
-        (_, _, Err(err)) => log_and_notify_error("Error verifying files:", &pkg, err),
+        (Ok(_), Ok(_), Ok(_)) => log!("Installed successfully", pkg),
+        (Err(err), _, _) => log_and_notify_error("Error installing files", &pkg, err),
+        (_, Err(err), _) => log_and_notify_error("Error removing files", &pkg, err),
+        (_, _, Err(err)) => log_and_notify_error("Error verifying files", &pkg, err),
     }
 
     Ok(())
@@ -546,7 +542,7 @@ pub fn pkg_install(config: &Config, package_tar: &str) -> Result<(), std::io::Er
 fn log_and_notify_error(log: &str, pkg: &String, err: impl std::error::Error) {
     log!(log, err);
     die!(
-        "Error installing:",
+        "Error installing",
         format!("{pkg}:"),
         "Filesystem now dirty, manual repair needed."
     );

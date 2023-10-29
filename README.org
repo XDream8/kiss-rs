@@ -18,6 +18,7 @@ unlike original kiss, kiss-rs commands are seperate binaries(like: kiss-build, k
 - [X] upgrade
 
 ** TODO Fix Issues
+- [ ] Top Priority: add a flag and env variable named user_id to allow users set build user
 - [ ] pkg_conflicts:
   - [ ] enable alternatives automatically if it is safe to do so.
   - [ ] fix bugs(like Found conflict: /var/db/kiss/installed/rust-analyzer/version)

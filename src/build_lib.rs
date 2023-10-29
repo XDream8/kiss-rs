@@ -19,13 +19,12 @@ use crate::{die, log};
 use std::{
     fs::{self, File},
     io::{self, BufRead, Read, Write},
+    os::unix::process::CommandExt,
     path::{Path, PathBuf},
-    process::{Child, Command, ExitStatus, Stdio},
+    process::{Command, ExitStatus, Stdio},
 };
 
 use nix::unistd::{chown, setgid, setuid, Gid, Uid, User};
-
-use std::os::unix::process::CommandExt;
 
 pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
     if config.debug || config.verbose {
@@ -430,38 +429,41 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) {
         die!("Error changing group recursively", err);
     }
 
-    let mut child: Child = unsafe {
-        Command::new(executable)
-            .arg(install_dir.to_string_lossy().to_string())
-            .stdout(if config.quiet {
-                Stdio::null()
-            } else {
-                Stdio::inherit()
-            })
-            .pre_exec(move || {
-                // Set the UID and GID to "nobody" within the new user namespace
-                setgid(user_info.gid).map_err(|err| {
-                    eprintln!("Error setting GID: {}", err);
-                    err
-                })?;
-                setuid(user_info.uid).map_err(|err| {
-                    eprintln!("Error setting UID: {}", err);
-                    err
-                })?;
+    let path_variable: String = std::env::var("PATH").unwrap();
 
-                println!(
-                    "Dropped root privileges. Running as user: {}",
-                    user_info.name
-                );
+    let mut child: Command = Command::new(executable);
+    child
+        .arg(install_dir.to_string_lossy().to_string())
+        .stdout(if config.quiet {
+            Stdio::null()
+        } else {
+            Stdio::inherit()
+        })
+        .env("PATH", &path_variable);
 
-                Ok(())
-            })
-            .spawn()
-            .unwrap_or_else(|err| die!("Execution error", err))
-    };
+    unsafe {
+        child.pre_exec(move || {
+            // Set the UID and GID to "nobody" within the new user namespace
+            setgid(user_info.gid).map_err(|err| {
+                eprintln!("Error setting GID: {}", err);
+                err
+            })?;
+            setuid(user_info.uid).map_err(|err| {
+                eprintln!("Error setting UID: {}", err);
+                err
+            })?;
+
+            println!(
+                "Dropped root privileges. Running as user: {}",
+                user_info.name
+            );
+
+            Ok(())
+        });
+    }
 
     // wait for build to finish and return status
-    let status: ExitStatus = child.wait().unwrap_or_else(|err| die!("Error", err));
+    let status: ExitStatus = child.status().unwrap_or_else(|err| die!("Error", err));
     if status.success() {
         // give info
         log!(pkg, "Successfully built package")

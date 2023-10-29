@@ -24,6 +24,7 @@ unlike original kiss, kiss-rs commands are seperate binaries(like: kiss-build, k
 - [ ] pkg_depends:
   - [ ] add circular dependency checks
 - [ ] replace all .expect(s) with appropriate error management
+- [ ] packages: cbindgen(a bug related to pkg_extract())
 
 ** using provides system
 - you can use kiss-provides cli app:

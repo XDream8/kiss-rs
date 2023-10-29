@@ -183,7 +183,7 @@ pub fn pkg_source_resolve(
         } else {
             dest.to_string()
         },
-        if !repo_name.is_empty() {
+        if &repo_name != dest && !repo_name.is_empty() {
             if let Some(index) = repo_name.find('#') {
                 repo_name.truncate(index);
             }
@@ -195,8 +195,6 @@ pub fn pkg_source_resolve(
             "".to_owned()
         }
     );
-
-    // let remote_dest = format!("{}", *SRC_DIR, package_name, );
 
     let (_res, _des) = match source {
         // unwanted
@@ -286,11 +284,11 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
         if res != des {
             if !skip_git && res.starts_with("git+") {
                 if let Err(err) = pkg_source_git(&repo_name, res.as_str(), des.as_str(), true) {
-                    die!("Failed to fetch repository:", err);
+                    die!("Failed to fetch repository", err);
                 }
             } else if res.starts_with("https://") || res.starts_with("http://") {
                 if let Err(err) = pkg_source_url(config, &repo_name, &res, Path::new(&des)) {
-                    die!("Failed to download file:", err);
+                    die!("Failed to download file", err);
                 }
             }
         }
@@ -331,7 +329,7 @@ pub fn pkg_source_git(
     fo.remote_callbacks(cb);
     fo.prune(git2::FetchPrune::On);
     fo.update_fetchhead(true);
-    remote.download(&["main"] as &[&str], Some(&mut fo))?;
+    remote.download(&[] as &[&str], Some(&mut fo))?;
 
     {
         // If there are local objects (we got a thin pack), then tell the user
@@ -368,7 +366,6 @@ pub fn pkg_source_git(
     // checkout fetched content
     let reference = repo.find_reference("FETCH_HEAD")?;
     let commit = reference.peel_to_commit()?;
-    // force checkout
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
     checkout_builder.force();
     repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder))?;

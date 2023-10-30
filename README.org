@@ -2,28 +2,29 @@
 #+DESCRIPTION: This is an implementation of kiss package manager in rust.
 #+AUTHOR: XDream8
 
-kiss-rs is currently *WIP*.
-
-unlike original kiss, kiss-rs commands are seperate binaries(like: kiss-build, kiss-install, kiss-checksum etc.).
+kiss-rs is currently *WIP*, but it is usable to some extent
 
 ** completed commands
+- [ ] alternatives
 - [X] build
 - [X] checksum
 - [X] download
 - [-] install(bugs are expected)
 - [X] list
 - [X] provides
+- [ ] remove
 - [X] search
 - [X] update
 - [X] upgrade
 
-** TODO Fix Issues
+** TODO things missing
 - [ ] Top Priority: add a flag and env variable named user_id to allow users set build user
-- [ ] pkg_conflicts:
-  - [ ] enable alternatives automatically if it is safe to do so.
-  - [ ] fix bugs(like Found conflict: /var/db/kiss/installed/rust-analyzer/version)
 - [ ] pkg_depends:
   - [ ] add circular dependency checks
+- [ ] pkg_conflicts:
+  - [ ] enable alternatives automatically if it is safe to do so.
+
+** TODO Bugs
 - [ ] replace all .expect(s) with appropriate error management
 - [ ] packages: cbindgen(a bug related to pkg_extract())
 
@@ -38,3 +39,12 @@ unlike original kiss, kiss-rs commands are seperate binaries(like: kiss-build, k
      #+end_src
 - syntax: <replacement> <package>
 - for example to replace rust with rustup: rustup rust
+
+** packages that kiss-rs can build and install successfully:
+alsa-utils file-rs foot freetype-harfbuzz glib libdrm libjpeg-turbo mesa meson openssl qemu sqlite ttf-font-awesome rust python
+
+** IMPORTANT
+to preserve PATH variable you need to configure doas(/etc/doas.conf):
+  #+begin_src shell
+    permit persist keepenv setenv { PATH } :wheel
+#+end_src

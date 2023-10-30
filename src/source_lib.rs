@@ -550,7 +550,7 @@ pub fn pkg_tar(config: &Config, pkg: &str) {
 }
 
 // for extracting
-pub fn pkg_source_tar(res: &String, dest_path: &Path, no_leading_dir: bool) {
+pub fn pkg_source_tar(res: &String, extract_path: &Path, no_leading_dir: bool) {
     let file: File = File::open(res).expect("Failed to open tar file");
     let extension: Option<&str> = Path::new(res.as_str())
         .extension()
@@ -580,9 +580,9 @@ pub fn pkg_source_tar(res: &String, dest_path: &Path, no_leading_dir: bool) {
 
         // remove first level directory from dest
         let dest_path: PathBuf = if !no_leading_dir {
-            dest_path.join(path)
+            extract_path.join(path)
         } else {
-            dest_path.join(
+            extract_path.join(
                 path.components()
                     .skip(1)
                     .collect::<std::path::PathBuf>()

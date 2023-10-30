@@ -56,6 +56,10 @@ pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
             let dest_path: PathBuf = dest_path.join(file_name);
             fs::copy(&res, &dest_path).expect("Failed to copy file");
         } else if des.contains(".tar.") {
+            let dest_path: PathBuf = dest_path.join(dest);
+            if let Err(err) = fs::create_dir_all(&dest_path) {
+                die!("Failed to create folder:", err);
+            }
             pkg_source_tar(&res, &dest_path, true);
         } else {
             let file_name = Path::new(res.as_str()).file_name().unwrap();
@@ -417,15 +421,6 @@ fn pkg_build(config: &Config, pkg: &str, repo_dir: &String) {
 
     let executable: String = format!("{}/build", repo_dir);
     let install_dir: PathBuf = config.pkg_dir.join(pkg);
-
-    // Clone a new user namespace for the child process
-    // unshare(CloneFlags::CLONE_NEWUSER).expect("Failed to unshare");
-
-    // let user_info: User = match User::from_name("nobody") {
-    //     Ok(Some(user)) => user,
-    //     Ok(None) => die!("Failed to find user: nobody"),
-    //     Err(err) => die!("Failed to get user info", err),
-    // };
 
     let user_info: User = match User::from_uid(1000.into()) {
         Ok(Some(user)) => user,

@@ -395,9 +395,7 @@ fn update_action(c: &Context) {
     set_config(c, false);
     let config: RwLockReadGuard<'_, Config> = get_config();
 
-    println!("{:?}", config.kiss_path);
     let repositories: Vec<String> = get_repositories(&config.kiss_path);
-    println!("{:?}", repositories);
 
     println!("Updating repositories");
 

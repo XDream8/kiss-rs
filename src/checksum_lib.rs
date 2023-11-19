@@ -1,6 +1,6 @@
 use crate::search_lib::pkg_find_path;
 use crate::shared_lib::{get_directory_name, globals::Config, read_a_files_lines, read_sources};
-use crate::source_lib::{pkg_source, pkg_source_resolve};
+use crate::source_lib::{pkg_source, pkg_source_resolve, SourceType};
 use std::{
     fs::{File, OpenOptions},
     io::{BufWriter, Read, Result, Write},
@@ -11,6 +11,7 @@ use crate::shared_lib::signal::pkg_clean;
 use crate::{die, log};
 // for b3sum hash generation
 use blake3::Hasher;
+
 // threading
 use crate::iter;
 #[cfg(feature = "threading")]
@@ -24,11 +25,11 @@ pub fn pkg_checksum_gen(config: &Config, package_name: &str, repo_dir: &str) -> 
     let hashes: Vec<_> = iter!(sources)
         .filter_map(|(source, dest)| {
             if !source.is_empty() && !source.starts_with("git+") {
-                let (res, des) =
+                let (source_type, _, des) =
                     pkg_source_resolve(config, package_name, repo_dir, source, dest, false);
 
-                // if it is a local source res equals to des
-                if res == des {
+                // if it is a local source
+                if source_type == SourceType::Cached {
                     Some(get_file_hash(&des))
                 } else {
                     None

@@ -2,7 +2,7 @@ use crate::checksum_lib::{get_file_hash, pkg_verify};
 use crate::install::pkg_install;
 use crate::manifest_lib::pkg_manifest;
 use crate::search_lib::{pkg_cache, pkg_find_path};
-use crate::source_lib::{pkg_source, pkg_source_resolve, pkg_source_tar, pkg_tar};
+use crate::source_lib::{pkg_source, pkg_source_resolve, pkg_source_tar, pkg_tar, SourceType};
 
 use crate::shared_lib::{
     copy_folder, get_current_working_dir, get_directory_name,
@@ -37,7 +37,7 @@ pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
         read_sources(sources_file.as_str()).expect("Failed to read sources file");
 
     for (source, dest) in sources.iter() {
-        let (res, des): (String, String) =
+        let (source_type, res, des): (SourceType, String, String) =
             pkg_source_resolve(config, pkg, repo_dir, source, dest, false);
 
         // temporary solution - need to find a better way
@@ -47,7 +47,7 @@ pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
             mkcd(dest_path.to_string_lossy().to_string());
         }
 
-        if res.contains("git+") {
+        if source_type == SourceType::Git {
             let dest_path = dest_path.join(dest);
             copy_folder(Path::new(des.as_str()), dest_path.as_path())
                 .expect("Failed to copy git source");

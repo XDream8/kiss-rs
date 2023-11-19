@@ -17,10 +17,7 @@ use rayon::iter::ParallelIterator;
 use crate::search_lib::{pkg_find_path, pkg_find_version};
 
 use crate::shared_lib::globals::Config;
-use crate::shared_lib::{
-    get_current_working_dir, get_directory_name, is_symlink, mkcd, read_sources,
-    remove_chars_after_last, tmp_file,
-};
+use crate::shared_lib::{is_symlink, mkcd, read_sources, remove_chars_after_last, tmp_file};
 
 // tar
 use std::fs;
@@ -50,6 +47,14 @@ pub static HTTP_CLIENT: Lazy<Agent> = Lazy::new(|| {
         .timeout_write(Duration::from_secs(10))
         .build()
 });
+
+#[derive(PartialEq)]
+pub enum SourceType {
+    Git,
+    Http,
+    Cached,
+    Unknown,
+}
 
 // get root directories of repositories and return them as a vector
 pub fn get_repositories(repo_path: &[String]) -> Vec<String> {
@@ -93,7 +98,7 @@ pub fn pkg_update_repo(repo_path: &str) -> Result<(), git2::Error> {
         if stats.local_objects() > 0 {
             println!(
                 "\rReceived {}/{} objects in {} bytes (used {} local \
-		         objects)",
+		 objects)",
                 stats.indexed_objects(),
                 stats.total_objects(),
                 stats.received_bytes(),
@@ -167,7 +172,7 @@ pub fn pkg_source_resolve(
     source: &String,
     dest: &String,
     print: bool,
-) -> (String, String) {
+) -> (SourceType, String, String) {
     let source_parts: Vec<String> = source.split('/').map(|e| e.to_owned()).collect();
 
     // get last element- repo name - for git
@@ -196,38 +201,30 @@ pub fn pkg_source_resolve(
         }
     );
 
-    let (_res, _des) = match source {
+    let (source_type, _res, _des) = match source {
         // unwanted
-        _ if source.starts_with('#') => (String::new(), String::new()),
+        _ if source.starts_with('#') => (SourceType::Unknown, String::new(), String::new()),
         // git source
-        _ if source.starts_with("git+") => (source.to_string(), _dest),
+        _ if source.starts_with("git+") => (SourceType::Git, source.to_string(), _dest),
         // Remote source(cached)
-        _ if source.contains("://") && Path::new(&_dest).exists() => (_dest.to_string(), _dest),
-        // Remote source
-        _ if source.contains("://") => (source.to_string(), _dest),
+        _ if source.contains("://") && Path::new(&_dest).exists() => {
+            (SourceType::Cached, _dest.to_string(), _dest)
+        }
+        // remote source
+        _ if source.contains("://") => (SourceType::Http, source.to_string(), _dest),
         // Local relative dir
         _ if !repo_dir.is_empty()
             && Path::new(repo_dir).join(source.as_str()).join(".").exists() =>
         {
             let source = format!("{}/{}/.", repo_dir, source);
-            (source.to_string(), source)
-        }
-        // Local absolute dir
-        _ if Path::new("/").join(source.trim_end_matches('/')).exists() => {
-            let source = format!("/{}/.", source.trim_end_matches('/'));
-            (source.to_string(), source)
+            (SourceType::Cached, source.to_string(), source)
         }
         // Local relative file
         _ if !repo_dir.is_empty() && Path::new(repo_dir).join(source.as_str()).exists() => {
             let source = format!("{}/{}", repo_dir, source);
-            (source.to_string(), source)
+            (SourceType::Cached, source.to_string(), source)
         }
-        // Local absolute file
-        _ if Path::new("/").join(source.trim_start_matches('/')).exists() => {
-            let source = format!("/{}", source.trim_start_matches('/'));
-            (source.to_string(), source)
-        }
-        _ => (String::new(), String::new()),
+        _ => (SourceType::Unknown, String::new(), String::new()),
     };
 
     if _res.is_empty() || _des.is_empty() {
@@ -236,23 +233,17 @@ pub fn pkg_source_resolve(
     } else if print && _res == _des && (config.debug || config.verbose) {
         log!(package_name, "found", _res);
     }
-    (_res, _des)
+
+    (source_type, _res, _des)
 }
 
 pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
-    let repo_dir: String = if !pkg.is_empty() {
-        pkg_find_path(config, pkg, None)
-            .unwrap_or_else(|| die!(pkg, "Failed to get package path"))
-            .to_string_lossy()
-            .to_string()
-    } else {
-        get_current_working_dir()
-    };
-    let repo_name: String = if !pkg.is_empty() {
-        pkg.to_string()
-    } else {
-        get_directory_name(&repo_dir).to_string()
-    };
+    let repo_dir: String = pkg_find_path(config, pkg, None)
+        .unwrap_or_else(|| die!(pkg, "Failed to get package path"))
+        .to_string_lossy()
+        .to_string();
+
+    let repo_name: String = pkg.to_string();
 
     let sources_file: PathBuf = Path::new(repo_dir.as_str()).join("sources");
 
@@ -269,7 +260,7 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
         .expect("Failed to read sources file");
 
     iter!(sources).for_each(|(source, dest)| {
-        let (res, des) = pkg_source_resolve(
+        let (source_type, res, des) = pkg_source_resolve(
             config,
             repo_name.as_str(),
             repo_dir.as_str(),
@@ -281,12 +272,12 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
         mkcd(remove_chars_after_last(&des, '/'));
 
         // if it is a local source both res and des are set to the same value
-        if res != des {
-            if !skip_git && res.starts_with("git+") {
+        if source_type != SourceType::Cached {
+            if !skip_git && source_type == SourceType::Git {
                 if let Err(err) = pkg_source_git(&repo_name, res.as_str(), des.as_str(), true) {
                     die!("Failed to fetch repository", err);
                 }
-            } else if res.starts_with("https://") || res.starts_with("http://") {
+            } else if source_type == SourceType::Http {
                 if let Err(err) = pkg_source_url(config, &repo_name, &res, Path::new(&des)) {
                     die!("Failed to download file", err);
                 }
@@ -338,7 +329,7 @@ pub fn pkg_source_git(
         if stats.local_objects() > 0 {
             println!(
                 "\rReceived {}/{} objects in {} bytes (used {} local \
-		         objects)",
+		 objects)",
                 stats.indexed_objects(),
                 stats.total_objects(),
                 stats.received_bytes(),

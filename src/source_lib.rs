@@ -50,9 +50,15 @@ pub static HTTP_CLIENT: Lazy<Agent> = Lazy::new(|| {
 
 #[derive(PartialEq)]
 pub enum SourceType {
-    Git,
-    Http,
-    Cached,
+    Git {
+        source: String,
+        destination: PathBuf,
+    },
+    Http {
+        source: String,
+        destination: PathBuf,
+    },
+    Cached(String),
     Unknown,
 }
 
@@ -172,14 +178,14 @@ pub fn pkg_source_resolve(
     source: &String,
     dest: &String,
     print: bool,
-) -> (SourceType, String, String) {
+) -> SourceType {
     let source_parts: Vec<String> = source.split('/').map(|e| e.to_owned()).collect();
 
     // get last element- repo name - for git
     let mut repo_name: String = source_parts.last().unwrap().to_owned();
 
     // both git and remote sources uses this dest
-    let _dest: String = format!(
+    let remote_dest: String = format!(
         "{}/{}/{}{}",
         config.sources_dir.to_string_lossy(),
         package_name,
@@ -201,40 +207,60 @@ pub fn pkg_source_resolve(
         }
     );
 
-    let (source_type, _res, _des) = match source {
+    let source_type: SourceType = match source {
         // unwanted
-        _ if source.starts_with('#') => (SourceType::Unknown, String::new(), String::new()),
+        _ if source.starts_with('#') => SourceType::Unknown,
         // git source
-        _ if source.starts_with("git+") => (SourceType::Git, source.to_string(), _dest),
+        _ if source.starts_with("git+") => SourceType::Git {
+            source: source.to_string(),
+            destination: PathBuf::from(remote_dest),
+        },
         // Remote source(cached)
-        _ if source.contains("://") && Path::new(&_dest).exists() => {
-            (SourceType::Cached, _dest.to_string(), _dest)
+        _ if source.contains("://") && Path::new(&remote_dest).exists() => {
+            SourceType::Cached(remote_dest.to_string())
         }
         // remote source
-        _ if source.contains("://") => (SourceType::Http, source.to_string(), _dest),
+        _ if source.contains("://") => SourceType::Http {
+            source: source.to_string(),
+            destination: PathBuf::from(remote_dest),
+        },
         // Local relative dir
         _ if !repo_dir.is_empty()
             && Path::new(repo_dir).join(source.as_str()).join(".").exists() =>
         {
-            let source = format!("{}/{}/.", repo_dir, source);
-            (SourceType::Cached, source.to_string(), source)
+            let source: String = format!("{}/{}/.", repo_dir, source);
+            SourceType::Cached(source)
         }
         // Local relative file
         _ if !repo_dir.is_empty() && Path::new(repo_dir).join(source.as_str()).exists() => {
             let source = format!("{}/{}", repo_dir, source);
-            (SourceType::Cached, source.to_string(), source)
+            SourceType::Cached(source)
         }
-        _ => (SourceType::Unknown, String::new(), String::new()),
+        _ => SourceType::Unknown,
     };
 
-    if _res.is_empty() || _des.is_empty() {
-        die!(package_name, "No local file:", source);
-        // local
-    } else if print && _res == _des && (config.debug || config.verbose) {
-        log!(package_name, "found", _res);
+    match &source_type {
+        SourceType::Git {
+            source: res,
+            destination: _,
+        }
+        | SourceType::Http {
+            source: res,
+            destination: _,
+        } => {
+            if res.is_empty() {
+                die!(package_name, "No local file:", source);
+            }
+        }
+        SourceType::Cached(res) => {
+            if print && (config.debug || config.verbose) {
+                log!(package_name, "found", res);
+            }
+        }
+        _ => {}
     }
 
-    (source_type, _res, _des)
+    source_type
 }
 
 pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
@@ -259,8 +285,10 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
     let sources: Vec<(String, String)> = read_sources(sources_file.to_str().unwrap_or("sources"))
         .expect("Failed to read sources file");
 
+    // Support packages with empty sources file. Simply do nothing
+
     iter!(sources).for_each(|(source, dest)| {
-        let (source_type, res, des) = pkg_source_resolve(
+        let source_type = pkg_source_resolve(
             config,
             repo_name.as_str(),
             repo_dir.as_str(),
@@ -269,19 +297,32 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
             print,
         );
 
-        mkcd(remove_chars_after_last(&des, '/'));
-
-        // if it is a local source both res and des are set to the same value
-        if source_type != SourceType::Cached {
-            if !skip_git && source_type == SourceType::Git {
-                if let Err(err) = pkg_source_git(&repo_name, res.as_str(), des.as_str(), true) {
-                    die!("Failed to fetch repository", err);
+        match source_type {
+            SourceType::Git {
+                source,
+                destination,
+            } => {
+                mkcd(remove_chars_after_last(&destination.to_string_lossy(), '/'));
+                if !skip_git {
+                    if let Err(err) =
+                        pkg_source_git(&repo_name, &source, &destination.to_string_lossy(), true)
+                    {
+                        die!("Failed to fetch repository", err);
+                    }
                 }
-            } else if source_type == SourceType::Http {
-                if let Err(err) = pkg_source_url(config, &repo_name, &res, Path::new(&des)) {
+            }
+            SourceType::Http {
+                source,
+                destination,
+            } => {
+                mkcd(remove_chars_after_last(&destination.to_string_lossy(), '/'));
+                if let Err(err) = pkg_source_url(config, &repo_name, &source, destination.as_path())
+                {
                     die!("Failed to download file", err);
                 }
             }
+
+            _ => {}
         }
     });
 }
@@ -290,7 +331,7 @@ pub fn pkg_source(config: &Config, pkg: &str, skip_git: bool, print: bool) {
 // https://github.com/rust-lang/git2-rs/blob/master/examples/fetch.rs
 pub fn pkg_source_git(
     package_name: &str,
-    source: &str,
+    source: &String,
     des: &str,
     log: bool,
 ) -> Result<(), git2::Error> {
@@ -368,7 +409,7 @@ pub fn pkg_source_git(
 pub fn pkg_source_url(
     config: &Config,
     repo_name: &String,
-    download_source: &str,
+    download_source: &String,
     download_dest: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     log!(repo_name, "Downloading:", download_source);

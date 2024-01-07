@@ -37,34 +37,41 @@ pub fn pkg_extract(config: &Config, pkg: &str, repo_dir: &String) {
         read_sources(sources_file.as_str()).expect("Failed to read sources file");
 
     for (source, dest) in sources.iter() {
-        let (source_type, res, des): (SourceType, String, String) =
+        let source_type: SourceType =
             pkg_source_resolve(config, pkg, repo_dir, source, dest, false);
-
         // temporary solution - need to find a better way
         let dest_path: PathBuf = config.mak_dir.join(pkg);
-        // Create the source's directories if not null.
-        if res != des {
-            mkcd(dest_path.to_string_lossy().to_string());
-        }
 
-        if source_type == SourceType::Git {
-            let dest_path = dest_path.join(dest);
-            copy_folder(Path::new(des.as_str()), dest_path.as_path())
-                .expect("Failed to copy git source");
-        } else if des.contains("?no-extract") {
-            let file_name = Path::new(res.as_str()).file_name().unwrap();
-            let dest_path: PathBuf = dest_path.join(file_name);
-            fs::copy(&res, &dest_path).expect("Failed to copy file");
-        } else if des.contains(".tar.") {
-            let dest_path: PathBuf = dest_path.join(dest);
-            if let Err(err) = fs::create_dir_all(&dest_path) {
-                die!("Failed to create folder:", err);
+        // Create the source's directories.
+        mkcd(dest_path.to_string_lossy().to_string());
+
+        match source_type {
+            SourceType::Git {
+                source: _,
+                destination,
+            } => {
+                let dest_path = dest_path.join(dest);
+                copy_folder(destination.as_path(), dest_path.as_path())
+                    .expect("Failed to copy git source");
             }
-            pkg_source_tar(&res, &dest_path, true);
-        } else {
-            let file_name = Path::new(res.as_str()).file_name().unwrap();
-            let dest_path: PathBuf = dest_path.join(file_name);
-            fs::copy(&res, &dest_path).expect("Failed to copy file");
+            SourceType::Cached(destination) => {
+                if destination.contains("?no-extract") {
+                    let file_name = Path::new(&destination).file_name().unwrap();
+                    let dest_path: PathBuf = dest_path.join(file_name);
+                    fs::copy(destination, &dest_path).expect("Failed to copy file");
+                } else if destination.contains(".tar.") {
+                    let dest_path: PathBuf = dest_path.join(dest);
+                    if let Err(err) = fs::create_dir_all(&dest_path) {
+                        die!("Failed to create folder:", err);
+                    }
+                    pkg_source_tar(&destination, &dest_path, true);
+                } else {
+                    let file_name = Path::new(&destination).file_name().unwrap();
+                    let dest_path: PathBuf = dest_path.join(file_name);
+                    fs::copy(destination, &dest_path).expect("Failed to copy file");
+                }
+            }
+            _ => {}
         }
     }
 }

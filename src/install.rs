@@ -36,19 +36,17 @@ fn pkg_conflicts(
         log!(pkg, "Checking for package conflicts");
     }
 
-    let mut resolved_paths: Vec<String> = Vec::new();
     let mut conflicts: Vec<String> = Vec::new();
 
     let manifest_contents: Vec<String> = read_a_files_lines(manifest_file_path)?;
-    for line in manifest_contents {
-        // store absolute paths in vector
-        if line.ends_with('/') {
-            continue;
-        }
-        if let Some(resolved_path) = resolve_path(config, line.as_str()) {
-            resolved_paths.push(format!("{}", resolved_path.to_string_lossy()));
-        }
-    }
+    let resolved_paths: Vec<String> = manifest_contents
+        .into_iter()
+        .filter(|line| !line.ends_with('/'))
+        .filter_map(|line| {
+            resolve_path(config, line.as_str()).map(|path| path.to_string_lossy().to_string())
+        })
+        .collect();
+    dbg!(&resolved_paths);
 
     // only get manifest files
     let sys_manifest_files: Vec<PathBuf> = iter!(read_a_dir_and_sort(
@@ -66,7 +64,6 @@ fn pkg_conflicts(
     .map(|name| name.to_path_buf())
     .collect();
 
-    let mut conflicts_found: bool = false;
     let mut safe: bool = false;
 
     for sys_manifest_path in sys_manifest_files {
@@ -76,13 +73,12 @@ fn pkg_conflicts(
         for line in sys_manifest_reader.lines().flatten() {
             let found: bool = iter!(resolved_paths).any(|path| path == &line);
             if found {
-                conflicts_found = true;
                 conflicts.push(line);
                 break;
             }
         }
 
-        if conflicts_found {
+        if !conflicts.is_empty() {
             break;
         }
     }
@@ -94,7 +90,7 @@ fn pkg_conflicts(
         safe = true;
     }
 
-    if choice && safe && conflicts_found {
+    if choice && safe && !conflicts.is_empty() {
         // Handle conflicts and create choices
         let choice_directory: PathBuf = config.tar_dir.join(pkg).join(&config.cho_db);
         // Create the "choices" directory inside of the tarball.
@@ -124,7 +120,7 @@ fn pkg_conflicts(
             // to its new spot (and name) in the choices directory.
             pkg_manifest(config, pkg, &config.tar_dir);
         }
-    } else if conflicts_found {
+    } else if !conflicts.is_empty() {
         println!("Package '{}' conflicts with another package !>", pkg);
         println!("Run 'KISS_CHOICE=1 kiss i '{}' to add conflicts !>", pkg);
         die!("", "as alternatives. !>");
@@ -544,6 +540,6 @@ fn log_and_notify_error(log: &str, pkg: &String, err: impl std::error::Error) {
     die!(
         "Error installing",
         format!("{pkg}:"),
-        "Filesystem now dirty, manual repair needed."
+        "Filesystem is now dirty, manual repair is needed."
     );
 }

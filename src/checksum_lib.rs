@@ -25,11 +25,11 @@ pub fn pkg_checksum_gen(config: &Config, package_name: &str, repo_dir: &str) -> 
     let hashes: Vec<_> = iter!(sources)
         .filter_map(|(source, dest)| {
             if !source.is_empty() && !source.starts_with("git+") {
-                let (source_type, _, des) =
+                let source_type =
                     pkg_source_resolve(config, package_name, repo_dir, source, dest, false);
 
                 // if it is a local source
-                if source_type == SourceType::Cached {
+                if let SourceType::Cached(des) = source_type {
                     Some(get_file_hash(&des))
                 } else {
                     None

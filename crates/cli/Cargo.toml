@@ -1,0 +1,23 @@
+[package]
+name = "kiss"
+version = "0.1.0"
+edition = "2021"
+authors = ["XDream8 <WolfsDream@proton.me>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://codeberg.org/XDream8/kiss-rs"
+description = "An implementation of kiss package manager in rust"
+
+[dependencies]
+kiss-api = { path = "../api/" }
+clap = { version = "4.5.9", features = ["derive", "env"] }
+nix = { version = "0.29.0", features = [
+  "fs",
+  "mount",
+  "sched",
+  "signal",
+  "user",
+] }
+thiserror = "1.0.63"
+itertools = "0.13.0"
+spinach = "2.1.0"

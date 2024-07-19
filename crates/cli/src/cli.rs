@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use kiss_api::compression::CompressionType;
 use nix::unistd::User;
 use std::path::PathBuf;
 
@@ -7,6 +8,17 @@ fn str_to_user(name: &str) -> Result<User, String> {
         Ok(Some(user)) => Ok(user),
         Ok(None) => Err(String::from("User not found")),
         Err(error) => Err(format!("Error: {}", error)),
+    }
+}
+
+fn str_to_compressiontype(name: &str) -> Result<CompressionType, String> {
+    match name {
+        "bz2" => Ok(CompressionType::BZ2),
+        "gz" => Ok(CompressionType::GZ),
+        "lz4" => Ok(CompressionType::LZ4),
+        "xz" => Ok(CompressionType::XZ),
+        "zstd" => Ok(CompressionType::ZSTD),
+        _ => Err(String::from("Unsupported compression type")),
     }
 }
 
@@ -22,8 +34,8 @@ pub struct Cli {
     pub build_user: Option<User>,
 
     /// Compression method to use for built package tarballs.
-    #[arg(short, long, default_value = "gz", env = "KISS_COMPRESS", value_parser = ["gz", "bz2", "lz4", "xz2", "zstd"])]
-    pub compression_type: String,
+    #[arg(short, long, default_value = "gz", env = "KISS_COMPRESS", value_parser = str_to_compressiontype)]
+    pub compression_type: CompressionType,
 
     /// Where packages binaries/sources will be at and built.
     #[arg(

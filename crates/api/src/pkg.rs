@@ -1,4 +1,7 @@
-use crate::common_funcs::{cat, read_a_dir_and_sort};
+use crate::{
+    common_funcs::{cat, read_a_dir_and_sort},
+    source::{parse_source_line, Source},
+};
 use std::{
     ffi::OsStr,
     fs,
@@ -7,7 +10,7 @@ use std::{
 
 use crate::error::Error;
 
-pub fn pkg_is_installed(query: &String, sys_package_database: &PathBuf) -> bool {
+pub fn pkg_is_installed(query: &String, sys_package_database: &Path) -> bool {
     let package_path = sys_package_database.join(query);
     package_path.exists()
 }
@@ -39,11 +42,7 @@ pub fn pkg_print_installed_packages(
             match package_path.exists() {
                 true => {
                     if version_param {
-                        let version_file = package_path.join("version");
-                        let version: String = std::fs::read_to_string(&version_file)?
-                            .trim()
-                            .replace(' ', "-");
-
+                        let version = extract_package_version(&package_path)?;
                         println!("{} {}", package, version);
                     } else {
                         println!("{}", package);
@@ -105,6 +104,26 @@ pub fn extract_package_version(package_path: &Path) -> Result<String, Error> {
             .to_owned())
     } else {
         Err(Error::VersionFileNotFound)
+    }
+}
+
+pub fn extract_package_sources(
+    package_path: &Path,
+    package_name: &String,
+    source_cache_dir: Option<&PathBuf>,
+) -> Result<Vec<Source>, Error> {
+    let sources_file_path: PathBuf = package_path.join("sources");
+
+    if sources_file_path.exists() {
+        Ok(std::fs::read_to_string(sources_file_path)?
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(|line| {
+                parse_source_line(line, package_name, Some(package_path), source_cache_dir)
+            })
+            .collect::<Vec<_>>())
+    } else {
+        Err(Error::SourcesFileNotFound)
     }
 }
 

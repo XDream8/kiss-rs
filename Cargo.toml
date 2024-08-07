@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/api", "crates/cli"]
+members = ["api", "cli"]
 
 [profile.release]
 lto = "thin"

@@ -1,7 +1,9 @@
 steps:
   test:
-    group: test
+    depends_on: []
     image: ${IMAGE}
+    when:
+      event: [tag, push]
     environment:
       - CARGO_TERM_COLOR=always
       - CARGO_BUILD_TARGET=${TARGET}
@@ -15,7 +17,7 @@ steps:
       - cargo clippy
 
   build:
-    group: build
+    depends_on: []
     image: ${IMAGE}
     when:
       event: tag
@@ -31,7 +33,7 @@ steps:
       - tar -zcvf kiss-rs-${TARGET}.tar.gz target/${TARGET}/optimized/kiss
 
   publish:
-    group: publish
+    depends_on: [test, build]
     image: woodpeckerci/plugin-gitea-release
     when:
       event: tag

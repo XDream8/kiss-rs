@@ -1,7 +1,8 @@
-use std::error::Error;
 use std::path::PathBuf;
 
 use kiss_api::pkg::{pkg_find_and_print, pkg_print_installed_packages};
+
+use kiss_api::error::Error;
 
 use kiss::cli::*;
 
@@ -10,7 +11,12 @@ use clap::Parser;
 // will remove this later
 #[allow(unused_variables)]
 
-fn handle_command(cli: &Cli) -> Result<(), Box<dyn Error>> {
+fn handle_command(cli: &Cli) -> Result<(), Error> {
+    // Root directory check(this should be as early as possible)
+    if !cli.installation_directory.exists() {
+        return Err(Error::RootDirNotExists);
+    }
+
     let pid: u32 = std::process::id();
 
     // Cache(to avoid repeated computations)

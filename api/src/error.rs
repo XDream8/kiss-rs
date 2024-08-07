@@ -6,10 +6,12 @@ pub enum Error {
     PackageNotFound,
     #[error("package is not installed")]
     PackageIsNotInstalled,
-    #[error("Version file not found")]
+    #[error("version file not found")]
     VersionFileNotFound,
-    #[error("Sources file not found")]
+    #[error("sources file not found")]
     SourcesFileNotFound,
+    #[error("root directory does not exists. be sure to provide a proper path")]
+    RootDirNotExists,
     #[error("IO error")]
     Io(#[from] std::io::Error),
 }

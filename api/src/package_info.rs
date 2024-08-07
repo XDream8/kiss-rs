@@ -30,7 +30,7 @@ pub fn pkg_info_from_path(
 
     let cached_binary = if let Some(binary_cache_dir) = binary_cache_dir {
         if let Some(compression_type) = compression_type {
-            pkg_is_binary_available(binary_cache_dir, package_name, &version, &compression_type)
+            pkg_is_binary_available(binary_cache_dir, package_name, &version, compression_type)
         } else {
             None
         }

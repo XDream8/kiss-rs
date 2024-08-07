@@ -1,0 +1,9 @@
+bin.name = "kiss"
+fs.cwd = ".."
+args = "--installation-directory example_root --repositories example_packages search a --recursive"
+status.code = 0
+stdout = """
+example_packages/axel
+example_root/var/db/kiss/installed/axel
+"""
+stderr = ""

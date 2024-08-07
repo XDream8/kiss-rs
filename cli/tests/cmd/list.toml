@@ -1,0 +1,10 @@
+bin.name = "kiss"
+fs.cwd = ".."
+args = "--installation-directory example_root list"
+status.code = 0
+stdout = """
+axel
+b3sum
+kiss
+"""
+stderr = ""

@@ -11,17 +11,6 @@ fn str_to_user(name: &str) -> Result<User, String> {
     }
 }
 
-fn str_to_compressiontype(name: &str) -> Result<CompressionType, String> {
-    match name {
-        "bz2" => Ok(CompressionType::BZ2),
-        "gz" => Ok(CompressionType::GZ),
-        "lz4" => Ok(CompressionType::LZ4),
-        "xz" => Ok(CompressionType::XZ),
-        "zstd" => Ok(CompressionType::ZSTD),
-        _ => Err(String::from("Unsupported compression type")),
-    }
-}
-
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
@@ -34,7 +23,7 @@ pub struct Cli {
     pub build_user: Option<User>,
 
     /// Compression method to use for built package tarballs.
-    #[arg(short, long, default_value = "gz", env = "KISS_COMPRESS", value_parser = str_to_compressiontype)]
+    #[arg(short, long, default_value = "gz", env = "KISS_COMPRESS")]
     pub compression_type: CompressionType,
 
     /// Where packages binaries/sources will be at and built.

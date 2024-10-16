@@ -18,3 +18,16 @@ impl CompressionType {
         }
     }
 }
+
+impl From<&str> for CompressionType {
+    fn from(s: &str) -> CompressionType {
+        match s {
+            "bz2" => CompressionType::BZ2,
+            "gz" => CompressionType::GZ,
+            "lz4" => CompressionType::LZ4,
+            "xz" => CompressionType::XZ,
+            "zstd" => CompressionType::ZSTD,
+            _ => panic!("Unknown compression type: {}", s),
+        }
+    }
+}

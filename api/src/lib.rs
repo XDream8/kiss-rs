@@ -1,3 +1,4 @@
+pub mod checksum;
 pub mod common_funcs;
 pub mod compression;
 pub mod error;

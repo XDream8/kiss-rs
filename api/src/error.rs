@@ -14,4 +14,6 @@ pub enum Error {
     RootDirNotExists,
     #[error("IO error")]
     Io(#[from] std::io::Error),
+    #[error("HTTP Client error")]
+    HttpClient(#[from] ureq::Error),
 }

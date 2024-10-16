@@ -54,11 +54,13 @@ pub struct Cli {
     pub repositories: Vec<PathBuf>,
 
     #[command(subcommand)]
-    pub command: Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Download package sources
+    Download { download_query: Vec<String> },
     /// List installed packages
     List {
         search_query: Vec<String>,

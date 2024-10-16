@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use kiss_api::package_info::{pkg_get_info, Package};
 use kiss_api::pkg::{pkg_find_and_print, pkg_print_installed_packages};
 
 use kiss_api::error::Error;
@@ -7,6 +8,7 @@ use kiss_api::error::Error;
 use kiss::cli::*;
 
 use clap::Parser;
+use kiss_api::source::pkg_download_source;
 
 // will remove this later
 #[allow(unused_variables)]
@@ -20,9 +22,9 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
     let pid: u32 = std::process::id();
 
     // Cache(to avoid repeated computations)
-    let sources_dir: PathBuf = cli.cache_directory.join("sources");
-    let log_dir: PathBuf = cli.cache_directory.join("logs");
-    let bin_dir: PathBuf = cli.cache_directory.join("bin");
+    let source_cache_dir: PathBuf = cli.cache_directory.join("sources");
+    let log_cache_dir: PathBuf = cli.cache_directory.join("logs");
+    let binary_cache_dir: PathBuf = cli.cache_directory.join("bin");
 
     // tmpdir stuff(to avoid repeated computations)
     let proc: PathBuf = cli
@@ -53,15 +55,32 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Some(Commands::List {
+        Commands::Download { download_query } => {
+            let packages: Result<Vec<Package>, Error> = download_query
+                .iter()
+                .map(|query| {
+                    pkg_get_info(
+                        query,
+                        Some(&source_cache_dir),
+                        Some(&binary_cache_dir),
+                        Some(&cli.compression_type),
+                        &cli.repositories,
+                    )
+                })
+                .collect();
+            for package in packages? {
+                pkg_download_source(&package.name, &package.sources, &tmp_dir)?
+            }
+        }
+        Commands::List {
             search_query,
             version,
-        }) => pkg_print_installed_packages(search_query.to_vec(), &sys_package_database, *version)?,
-        Some(Commands::Search {
+        } => pkg_print_installed_packages(search_query.to_vec(), &sys_package_database, *version)?,
+        Commands::Search {
             search_query,
             recursive,
             version,
-        }) => {
+        } => {
             // TODO: get rid of clone
             let mut repositories = cli.repositories.clone();
             repositories.push(sys_package_database);
@@ -70,7 +89,6 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
                 pkg_find_and_print(&repositories, package, *recursive, *version)?
             }
         }
-        None => {}
     };
 
     Ok(())

@@ -11,7 +11,7 @@ use std::{
     path::Path,
 };
 
-pub fn pkg_checksum_gen(sources: &Vec<Source>) -> Result<Vec<String>, Error> {
+pub fn pkg_checksum_gen(sources: &[Source]) -> Result<Vec<String>, Error> {
     sources
         .iter()
         .filter_map(|source| {

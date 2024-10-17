@@ -12,8 +12,14 @@ pub enum Error {
     SourcesFileNotFound,
     #[error("root directory does not exists. be sure to provide a proper path")]
     RootDirNotExists,
-    #[error("IO error")]
+    #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("HTTP Client error")]
-    HttpClient(#[from] ureq::Error),
+    #[error("http client error: {0}")]
+    HttpClient(String),
+}
+
+impl From<ureq::Error> for Error {
+    fn from(e: ureq::Error) -> Self {
+        Error::HttpClient(e.to_string())
+    }
 }

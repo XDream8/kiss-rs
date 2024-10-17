@@ -44,14 +44,6 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
     let pkg_db_syntax: String = format!("{}/installed", packages_db_path);
     let sys_package_database: PathBuf = cli.installation_directory.join(pkg_db_syntax);
 
-    //dbg!(kiss_api::package_info::pkg_get_info(
-    //    &String::from("rust"),
-    //    Some(&sources_dir),
-    //    Some(&bin_dir),
-    //    Some(&cli.compression_type),
-    //    &cli.repositories
-    //));
-
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {

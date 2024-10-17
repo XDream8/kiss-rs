@@ -175,7 +175,6 @@ pub fn pkg_source_url(package_name: &String, source: &Source, tmp_dir: &Path) ->
     //    .to_owned();
 
     // tmp file
-    dbg!(&tmp_dir);
     let (mut tmp_file, tmp_file_path) =
         tmp_file(tmp_dir, source.source_file_name.as_str(), "download")?;
 

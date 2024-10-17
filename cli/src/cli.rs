@@ -48,6 +48,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Create package checksums
+    Checksum { package_query: Vec<String> },
     /// Download package sources
     Download { download_query: Vec<String> },
     /// List installed packages

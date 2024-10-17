@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use kiss_api::checksum::pkg_checksum;
 use kiss_api::package_info::{pkg_get_info, Package};
 use kiss_api::pkg::{pkg_find_and_print, pkg_print_installed_packages};
 
@@ -68,7 +69,7 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
 
     // create tmp dirs if needed
     match &cli.command {
-        Commands::Download { .. } => create_tmp_dirs(vec![
+        Commands::Checksum { .. } | Commands::Download { .. } => create_tmp_dirs(vec![
             &source_cache_dir,
             &log_cache_dir,
             &binary_cache_dir,
@@ -81,6 +82,23 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
     }
 
     match &cli.command {
+        Commands::Checksum { package_query } => {
+            let packages: Result<Vec<Package>, Error> = package_query
+                .iter()
+                .map(|query| {
+                    pkg_get_info(
+                        query,
+                        Some(&source_cache_dir),
+                        Some(&binary_cache_dir),
+                        Some(&cli.compression_type),
+                        &cli.repositories,
+                    )
+                })
+                .collect();
+            for package in packages? {
+                pkg_checksum(&package, &tmp_dir)?
+            }
+        }
         Commands::Download { download_query } => {
             let packages: Result<Vec<Package>, Error> = download_query
                 .iter()
@@ -119,7 +137,9 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
 
     // clean tmp dirs
     match &cli.command {
-        Commands::Download { .. } => clean_tmp_dirs(cli.debug, &proc, &tar_dir)?,
+        Commands::Checksum { .. } | Commands::Download { .. } => {
+            clean_tmp_dirs(cli.debug, &proc, &tar_dir)?
+        }
         _ => {}
     }
 

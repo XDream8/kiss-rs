@@ -13,6 +13,28 @@ use kiss_api::source::pkg_download_source;
 // will remove this later
 #[allow(unused_variables)]
 
+fn create_tmp_dirs(dirs: Vec<&PathBuf>) -> Result<(), Error> {
+    dirs.iter().try_for_each(|dir| {
+        if !dir.exists() {
+            std::fs::create_dir_all(dir).map_err(Error::from)
+        } else {
+            Ok(())
+        }
+    })
+}
+
+fn clean_tmp_dirs(debug: bool, proc_dir: &PathBuf, tar_dir: &PathBuf) -> Result<(), Error> {
+    if !debug {
+        if proc_dir.exists() {
+            std::fs::remove_dir_all(proc_dir)?
+        } else if tar_dir.exists() {
+            std::fs::remove_dir_all(tar_dir)?
+        }
+    }
+
+    Ok(())
+}
+
 fn handle_command(cli: &Cli) -> Result<(), Error> {
     // Root directory check(this should be as early as possible)
     if !cli.installation_directory.exists() {
@@ -44,8 +66,20 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
     let pkg_db_syntax: String = format!("{}/installed", packages_db_path);
     let sys_package_database: PathBuf = cli.installation_directory.join(pkg_db_syntax);
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
+    // create tmp dirs if needed
+    match &cli.command {
+        Commands::Download { .. } => create_tmp_dirs(vec![
+            &source_cache_dir,
+            &log_cache_dir,
+            &binary_cache_dir,
+            &mak_dir,
+            &pkg_dir,
+            &tar_dir,
+            &tmp_dir,
+        ])?,
+        _ => {}
+    }
+
     match &cli.command {
         Commands::Download { download_query } => {
             let packages: Result<Vec<Package>, Error> = download_query
@@ -82,6 +116,12 @@ fn handle_command(cli: &Cli) -> Result<(), Error> {
             }
         }
     };
+
+    // clean tmp dirs
+    match &cli.command {
+        Commands::Download { .. } => clean_tmp_dirs(cli.debug, &proc, &tar_dir)?,
+        _ => {}
+    }
 
     Ok(())
 }

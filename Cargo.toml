@@ -16,7 +16,7 @@ blake3 = { version = "1.4.0", default-features = false }
 faster-hex = { version = "0.8.0", default-features = false, features = [ "alloc" ] }
 ureq = { version = "2.7.0", default-features = false, features = [ "tls" ] }
 git2 = { version = "0.17.2", default-features = false, features = [ "https" ] }
-tar = "0.4.38"
+tar = "0.4.46"
 xz2 = { version = "0.1.7", optional = true }
 zstd = { version = "0.12.4", features = [ "pkg-config" ], optional = true }
 bzip2 = { version = "0.4.4", optional = true }
